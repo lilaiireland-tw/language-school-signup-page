@@ -32,7 +32,7 @@
 - Git：本機 repository 已建立，branch 為 `main`
 - 最新 checkpoint commit：`eeca02d chore: checkpoint successful workers.dev deployment`
 - 固定圖片：由 Workers Static Assets 部署；CMS 圖片未來使用 WordPress Media
-- 表單後端規劃：Cloudflare D1 作為唯一資料來源；Email 與 Notion CRM 透過 Queue 非同步同步（尚未實作）
+- 表單後端最新需求：外部 MySQL 作為唯一資料來源，Worker 經 Hyperdrive 存取；使用公司 Google Workspace Gmail API 寄信；Notion CRM 經 Queue 同步（供應商與帳號設定尚待確認）
 
 ## 目前最高優先順序
 
@@ -1165,10 +1165,10 @@ CMS / 文章 / 商品內容圖片
 
 
 ==================================================
-31. 表單資料庫、Email 與 Notion CRM 可執行規劃
+31. 表單資料庫、Email 與 Notion CRM 初版規劃（部分已被第 32 章取代）
 ==================================================
 
-狀態：已完成架構規劃，尚未建立任何 production resource、secret、Email binding 或 Notion integration。
+狀態：初版曾建議 D1 與可選 Email provider；使用者後續明確指定 MySQL 與公司 Gmail。資料庫與 Email 技術選擇以第 32 章為準。本章的 Queue、Notion、idempotency、安全及驗收原則仍有效。
 
 架構決策：
 
@@ -1356,3 +1356,58 @@ Phase 4 — QA 與上線
 - Notion CRM database 的 URL / ID、現有 properties 與希望的 status 流程。
 - 是否需要 D1 → Notion 單向同步，或第二階段也要 Notion status 回寫 D1。
 - 隱私權政策、同意文案版本與個資保存期限。
+
+
+==================================================
+32. 最新資料庫與 Email 技術需求（2026-08-24）
+==================================================
+
+使用者決策：
+- Production 不使用 D1 / SQLite，改用 MySQL。
+- MySQL 必須維持輕量成本，但保留未來擴充能力。
+- Transactional Email 必須由公司 Google Workspace Gmail 信箱寄出。
+
+建議架構：
+
+Cloudflare Worker API
+  ↓
+Cloudflare Hyperdrive（connection pooling / secure connectivity）
+  ↓
+Managed MySQL（source of truth）
+
+Queue consumer
+  ├─ Gmail API messages.send
+  └─ Notion API CRM sync
+
+MySQL：
+- Worker 不應對 MySQL 建立未受管理的大量直接連線；使用 Cloudflare Hyperdrive。
+- Driver 使用 mysql2 3.13.0 以上，Promise API；ORM 可將現有 Drizzle 從 d1 adapter 改為 mysql2 adapter。
+- 每個 request 建立邏輯 connection，底層 pool 交由 Hyperdrive 管理。
+- 表單寫入與立即讀回使用 cache-disabled Hyperdrive，避免 read-after-write stale data。
+- 建立 dev / production 兩套 database、credentials 與 Hyperdrive binding。
+- MySQL provider 尚未決定；候選需比較 managed backup、TLS、region、SLA、升級路徑與最低月費。
+- 不建議自行在廉價 VPS 維護 MySQL production，除非團隊願意負責 patch、backup、restore、monitoring、failover 與安全。
+
+MySQL provider 建議順序：
+1. 輕量起步：Aiven MySQL Developer（或 Free 僅供 dev / prototype），再透過 Hyperdrive。
+2. 更重視 MySQL-native scale workflow：PlanetScale Vitess + Hyperdrive，成本較高但擴充與 schema workflow 完整。
+3. 已深度使用 Google Cloud：Cloud SQL for MySQL + Hyperdrive；管理成熟，但 instance 持續計費，通常不是最低成本。
+4. Railway 可作早期低流量環境，但 production 前需確認 backup、availability target、region 與長期費用。
+
+Gmail API：
+- Google API key 本身不能授權寄信；Gmail messages.send 需要 OAuth 2.0 access token。
+- 最小 OAuth scope 使用 https://www.googleapis.com/auth/gmail.send。
+- 公司 Google Workspace 自動化首選：建立專用寄件帳號（例如 application@lilaiireland.com）＋ Google Cloud service account ＋ Workspace Admin domain-wide delegation，只授權 gmail.send，並 impersonate 該寄件帳號。
+- 若不使用 domain-wide delegation，可用一次性管理員 OAuth consent 取得 refresh token；但帳號撤權、密碼／安全政策變動與 token lifecycle 維護較麻煩。
+- service account private key / OAuth client secret / refresh token 必須存 Cloudflare Secret，不得使用 NEXT_PUBLIC_*、不得進 Git 或日誌。
+- Queue consumer 建立 RFC 2822 MIME email，base64url encode 後呼叫 Gmail API users.messages.send。
+- 寄件 From 必須是被 impersonate 的 Workspace mailbox 或其已設定 send-as alias。
+- Gmail 適合目前低量 transactional confirmation；仍受 Workspace sending limits、bounce 與反垃圾政策約束，不應用於大量行銷信。
+
+開始實作前待確認：
+- MySQL provider 與預算上限。
+- 預期每月 submissions、查詢量與資料保存年限。
+- 是否要求 production SLA / automated backup / point-in-time recovery。
+- Google Workspace 是否有 Super Admin 可設定 domain-wide delegation。
+- 專用寄件信箱與 reply-to。
+- 是否接受 service account domain-wide delegation；若否，改採 OAuth refresh token。
