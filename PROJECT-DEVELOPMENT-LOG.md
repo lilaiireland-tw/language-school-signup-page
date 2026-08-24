@@ -1,4 +1,59 @@
-哩來愛爾蘭 Headless Frontend / Cloudflare Workers 專案交接進度
+# 哩來愛爾蘭 Headless Frontend / Cloudflare Workers 開發日誌
+
+> 本檔案是本專案唯一的開發進度與交接來源（Single Source of Truth）。
+> Codex 每次開始工作前必須先完整閱讀；每次完成開發、部署、設定或重要決策後，必須更新本檔案。
+
+## 文件維護規則
+
+1. 最新狀態、目前風險與下一步永遠維護在本檔案最前段。
+2. 每次開發後更新「最後更新」、「目前狀態」、「完成紀錄」、「待辦」及受影響章節。
+3. 每次 deployment 記錄日期、環境、Worker 名稱、URL、Version ID、build／test 結果與 rollback baseline。
+4. 完成項目由 `[ ]` 改為 `[x]`，不得只追加新清單而保留互相矛盾的舊狀態。
+5. 若實際程式、Cloudflare、WordPress 或 DNS 狀態與本文件不同，先查證，再同步修正文檔。
+6. 不在本文件或 Git 中記錄密碼、API key、Cloudflare token、WooCommerce secret 或其他憑證。
+7. 不再建立帶日期的交接副本；歷史變更由 Git commit 保存。
+
+## Codex 開始工作時的閱讀順序
+
+1. 完整閱讀本檔案。
+2. 閱讀 `README.md` 了解本機啟動方式。
+3. 依任務閱讀相關原始碼；表單後端優先看 `app/lib/api.ts`，資料格式看 `app/lib/types.ts`。
+4. 執行 `git status`，確認是否有尚未提交的使用者變更。
+
+## 最新狀態快照
+
+- 正式網站：https://lilaiireland.com
+- 舊版原型預覽：https://lilai-ireland-language-school-application.hsiad335950.chatgpt.site/
+- Worker 測試網址：https://site-creator-vinext-starter.lilaiireland.workers.dev
+- Worker rollback／QA baseline Version ID：`5aa3541a-2cf4-43f7-8f40-73f96c69922f`
+- Production custom route：**NOT ENABLED**
+- 第一個預定接管 URL：https://lilaiireland.com/language-school-signup/
+- 表單狀態：前端完成，目前仍為 mock submit，尚未寄信、寫入資料庫或建立 CRM 紀錄
+- Git：本機 repository 已建立，branch 為 `main`
+- 最新 checkpoint commit：`eeca02d chore: checkpoint successful workers.dev deployment`
+- 固定圖片：由 Workers Static Assets 部署；CMS 圖片未來使用 WordPress Media
+
+## 目前最高優先順序
+
+1. 完成 workers.dev 的 responsive、assets、console、network、routing、form 與 metadata QA。
+2. 建立 WordPress 原頁 SEO baseline 與 URL inventory。
+3. 修正 Windows build scripts並重新執行 build／test。
+4. 壓縮大型圖片並驗證 responsive image／Cloudflare Images 實際行為。
+5. 將 mock submit 改為正式 API，完成 CRM／資料庫、Email、防垃圾與端對端測試。
+6. 所有 QA、SEO comparison 與 rollback plan 完成並取得明確確認後，才設定單一路徑 production route。
+
+## 絕對不可直接執行
+
+- 不改 DNS、Nameserver、既有正式 URL 或 WordPress sitemap。
+- 不把 `lilaiireland.com/*` 整站綁到 Worker。
+- 不在未驗收前操作 production route。
+- 不執行 `npm audit fix --force`。
+- 不提交 secrets。
+- 不先 Headless 化 WooCommerce checkout、cart、my-account、付款 callback 或下載權限。
+
+---
+
+## 完整專案進度（2026-08-24）
 
 更新日期：2026-08-24
 專案：LilaiIreland Website Frontend Migration
@@ -959,3 +1014,150 @@ lilaiireland.com/language-school-signup
 lilaiireland.com/language-school-signup/*
 
 而且必須在 workers.dev QA 與 SEO comparison 完成後才執行。
+
+
+==================================================
+30. 圖片部署現況與優化策略
+==================================================
+
+目前大部分網站圖片位於：
+public/lilai-assets/
+
+目前部署流程：
+
+public/lilai-assets/*
+  ↓
+Vinext build
+  ↓
+dist/client/*
+  ↓
+Wrangler deploy
+  ↓
+Cloudflare Workers Static Assets
+
+wrangler.jsonc 目前設定：
+- assets.directory = dist/client
+- assets.binding = ASSETS
+- not_found_handling = none
+
+因此每次部署 Worker 時，public 內的固定圖片會一起進入 client build，並上傳為 Cloudflare Workers Static Assets。圖片路徑目前包括：
+
+/lilai-assets/lilai-logo.png
+/lilai-assets/alex-arsha-cutout.png
+/lilai-assets/schools/*
+/lilai-assets/gift-support/*
+/lilai-assets/community-*.jpg
+/og.png
+/favicon.svg
+
+目前 public 共約 43 個檔案，總大小約 11.95 MB。整體規模不大，繼續使用 Workers Static Assets 是合理且簡單的做法，目前不需要為這批固定素材導入 R2。
+
+目前主要問題不是部署方式，而是部分原始圖片檔案偏大，且頁面主要使用一般 <img>：
+
+- job-guide.png 約 2.4 MB
+- og.png 約 1.9 MB
+- 部分 community 圖片接近 1 MB
+- 一般 <img> 不會自動取得完整的 responsive image / dynamic transformation 效果
+
+雖然 wrangler.jsonc 已有 IMAGES binding，vite.config.ts 也設定 Vinext imagesOptimizer，但目前 JSX 大多使用一般 <img>，因此不可假設所有圖片都已經過 Cloudflare Images 自動縮圖、轉 WebP 或 AVIF。必須透過實際 Network response、Content-Type、尺寸與請求 URL 驗證。
+
+建議採用混合式圖片架構：
+
+1. Git + Cloudflare Workers Static Assets
+
+適合：
+- 品牌 Logo
+- 語校 Logo
+- favicon
+- UI 裝飾
+- Landing Page 固定素材
+- 固定活動卡片圖
+- 預設 OG 圖
+- Alex / Arsha 固定人物圖
+
+理由：
+- 圖片與程式版本一起管理
+- deploy 與 rollback 時能保持一致
+- 不依賴 WordPress origin 才能顯示
+- Cloudflare 可直接在 edge 提供靜態資產
+
+2. WordPress Media Library
+
+適合：
+- 文章 featured image
+- 部落格內文圖片
+- 學校介紹頁照片
+- 商品圖片
+- 最新活動內容圖片
+- 需要由非工程人員在 WordPress 後台更換的素材
+
+未來 Worker frontend 可透過 WordPress REST API 取得 media URL。這些圖片屬於 CMS 內容，不應全部複製進 Git。
+
+3. Cloudflare Images / R2
+
+Cloudflare Images 適合：
+- 需要依裝置動態 resize
+- 需要 WebP / AVIF 轉換
+- 同一原圖需要多種尺寸與裁切
+- 未來圖片量明顯增加
+
+R2 適合：
+- 大量獨立媒體檔案
+- 使用者上傳內容
+- 圖片生命週期不應綁定 frontend deploy
+- 需要 S3-compatible object storage
+
+目前只有約 12 MB 固定素材，不需要立刻加入 R2。Cloudflare Images transformation 可能有用量與計費，正式啟用前需確認實際需求、cache 行為與方案。
+
+目前另有第三方圖片 hotlink：
+
+https://leevinstay.com/wp-content/uploads/2025/09/faci06-1024x683.jpg
+https://leevinstay.com/wp-content/uploads/2026/04/Layer-2.png
+
+風險：
+- 對方換檔名或刪除圖片會直接破圖
+- 對方可能限制 hotlink
+- 無法控制 cache、格式與圖片大小
+- 素材授權與長期可用性需確認
+
+正式版建議在取得書面使用許可後，將這類圖片改由自家 WordPress Media、Workers Static Assets 或未來的 R2 管理。YouTube 官方縮圖可繼續使用官方來源。
+
+圖片優化優先順序：
+
+Priority 1：
+- 壓縮 job-guide.png、og.png 與接近 1 MB 的 community 圖片
+- 視圖片用途輸出 WebP / AVIF，保留合理品質
+- 確認 OG 圖仍符合社群平台相容性
+
+Priority 2：
+- 為大圖加入 srcset / sizes
+- 保持非首屏圖片 loading="lazy"
+- Hero / LCP 圖片不可一律 lazy load
+- 明確設定 width / height 或 aspect-ratio，降低 layout shift
+
+Priority 3：
+- 驗證 Vinext next/image 與 Cloudflare Images binding
+- 檢查實際請求是否有 resize / format optimization
+- 確認 transformation cache 與 fallback 行為
+- 驗證穩定後，再逐步把合適圖片從 <img> 改為 Image component
+
+Priority 4：
+- WordPress REST API 整合時，將 CMS 圖片與固定 UI 圖片分開
+- 不要把所有 WordPress Media 複製進 frontend repo
+- 不要把所有固定 UI 素材搬回 WordPress
+
+圖片架構結論：
+
+固定 UI / 品牌素材
+→ Git + Cloudflare Workers Static Assets
+
+CMS / 文章 / 商品內容圖片
+→ WordPress Media Library
+
+大量獨立媒體或使用者上傳
+→ 未來視需要使用 R2
+
+動態縮圖、格式轉換與多尺寸輸出
+→ 視成本與需求使用 Cloudflare Images
+
+目前做法可以繼續使用，但正式 route 上線前必須完成大型圖片壓縮、responsive image 與 Network QA。

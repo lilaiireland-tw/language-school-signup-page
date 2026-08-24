@@ -4,7 +4,7 @@
 
 - 線上預覽：https://lilai-ireland-language-school-application.hsiad335950.chatgpt.site/
 - 交接負責人：Alex
-- 完整交接說明：請先閱讀 `ALEX-HANDOFF.md`
+- 完整進度與交接說明：請先閱讀 `PROJECT-DEVELOPMENT-LOG.md`
 
 ## 技術環境
 
@@ -50,5 +50,4 @@ npm run build
 
 ## 重要提醒
 
-目前表單送出後只會在前端模擬成功，**不會寄信、不會寫入資料庫，也不會送進 CRM**。正式上線前，Alex 必須先依 `ALEX-HANDOFF.md` 串接後端並完成失敗狀態處理。
-
+目前表單送出後只會在前端模擬成功，**不會寄信、不會寫入資料庫，也不會送進 CRM**。正式上線前，Alex 必須先依 `PROJECT-DEVELOPMENT-LOG.md` 串接後端並完成失敗狀態處理。
