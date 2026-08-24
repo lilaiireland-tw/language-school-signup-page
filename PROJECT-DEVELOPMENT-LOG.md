@@ -32,6 +32,7 @@
 - Git：本機 repository 已建立，branch 為 `main`
 - 最新 checkpoint commit：`eeca02d chore: checkpoint successful workers.dev deployment`
 - 固定圖片：由 Workers Static Assets 部署；CMS 圖片未來使用 WordPress Media
+- 表單後端規劃：Cloudflare D1 作為唯一資料來源；Email 與 Notion CRM 透過 Queue 非同步同步（尚未實作）
 
 ## 目前最高優先順序
 
@@ -1161,3 +1162,197 @@ CMS / 文章 / 商品內容圖片
 → 視成本與需求使用 Cloudflare Images
 
 目前做法可以繼續使用，但正式 route 上線前必須完成大型圖片壓縮、responsive image 與 Network QA。
+
+
+==================================================
+31. 表單資料庫、Email 與 Notion CRM 可執行規劃
+==================================================
+
+狀態：已完成架構規劃，尚未建立任何 production resource、secret、Email binding 或 Notion integration。
+
+架構決策：
+
+瀏覽器表單
+  ↓ POST /api/applications
+Cloudflare Worker API
+  ├─ Server-side validation / honeypot / rate limit / Turnstile（視需要）
+  ├─ INSERT Cloudflare D1（唯一真實資料來源）
+  └─ enqueue submissionId
+       ↓
+Cloudflare Queue consumer
+  ├─ 寄學生確認信
+  ├─ 寄內部通知信至 lilaiireland@gmail.com
+  ├─ 呼叫 Notion API 建立或更新 CRM page
+  └─ 回寫 D1 的 email_status / notion_status / notion_page_id / error
+
+核心原則：
+
+- 客人資料先成功寫入 D1，API 才回傳成功與 submissionId。
+- Email 或 Notion 暫時失敗，不可讓已保存的表單資料消失。
+- Email 與 Notion 由 Queue 非同步執行並可重試。
+- D1 是 source of truth；Notion 是方便團隊操作的 CRM projection，不是唯一資料庫。
+- Notion 不會直接讀取 D1 SQL；Worker consumer 必須使用 Notion API 建立或更新資料庫 page。
+- 所有同步必須具備 idempotency，避免 Queue retry 造成重複寄信或重複建立 Notion page。
+
+建議技術選擇：
+
+- SQL：Cloudflare D1（SQLite semantics），與現有 Worker 同帳號、低流量可 scale-to-zero。
+- ORM / migration：沿用現有 Drizzle ORM 與 drizzle-kit。
+- 非同步：Cloudflare Queues；設定 retry 與 Dead Letter Queue。
+- Email 首選：Cloudflare Email Service Workers binding（若帳號方案與網域已符合寄送條件）。
+- Email 備選：既有 Email provider 的 HTTPS API，例如 Resend / Postmark；API key 僅存 Cloudflare Secret。
+- CRM：Notion Integration + Notion API；CRM database 需分享給 integration，並具 Insert Content／Update Content capability。
+
+成本判斷（以 2026-08-24 官方文件為準，正式啟用前仍需重新核對）：
+
+- D1 Free：每日包含 5 million rows read、100,000 rows written，總 storage 5 GB；一般表單名單量通常遠低於此範圍。
+- Queues Free：每日 10,000 operations，訊息通常包含 write / read / delete 三次操作；低流量表單通常足夠。
+- Cloudflare Email Sending：寄送任意客戶地址需要 Workers Paid；Paid 每月包含 3,000 封，超量依官方費率計算。
+- 因 Email Sending 需要 Workers Paid，最低成本需比較：Workers Paid + Cloudflare Email Service，或 Workers Free + 外部 Email API free tier。選擇時以寄送可靠性、網域驗證、日後維護與實際月寄送量為準，不只看零元方案。
+
+建議 D1 tables：
+
+1. applications
+- id / submission_id：UUID，primary key
+- service_type
+- chinese_name / email / phone / line_id / current_location
+- preferred_city / preferred_school / custom_school / course_type
+- expected_start_month / course_duration / class_schedule
+- accommodation_needed / partner_accommodation_interest
+- quote_status / decision_stage / consultation_goal / budget_range
+- additional_notes / discovery_source
+- utm_source / utm_medium / utm_campaign / utm_content / utm_term / gclid / landing_page_url
+- agreements_json / agreement_version / consented_at
+- isic_initially_eligible / isic_eligibility_status / isic_notes
+- crm_status（預設 new）
+- created_at / updated_at
+
+2. integration_jobs
+- id
+- application_id
+- job_type：student_email / internal_email / notion_sync
+- status：pending / processing / succeeded / failed / dead_letter
+- attempts / last_error / next_retry_at
+- provider_message_id / notion_page_id
+- created_at / updated_at / completed_at
+- UNIQUE(application_id, job_type)，作為 idempotency 保護
+
+可在 applications 直接保存彙總狀態：
+- student_email_status
+- internal_email_status
+- notion_sync_status
+- notion_page_id
+- last_integration_error
+
+API 規格：
+
+POST /api/applications
+
+流程：
+1. 解析 JSON 並限制 request size。
+2. 後端重新驗證必填、Email、長度、enum 與 agreements；不可相信前端驗證。
+3. 驗證 honeypot / rate limit；正式廣告流量前加入 Turnstile。
+4. 產生 submissionId，使用 transaction 寫入 applications 與 integration_jobs。
+5. 將只包含 submissionId 的小訊息送入 Queue；不要把完整個資放進 Queue payload。
+6. 回傳 201：{ ok: true, submissionId }。
+7. 重複 request 使用 Idempotency-Key 或 submission token，避免連點造成重複名單。
+
+不可把 Email 或 Notion 同步成功當作 API 成功的必要條件。只要 D1 已安全保存即可顯示「已收到」；Email 可在成功畫面標示「確認信將寄至你的信箱，若數分鐘未收到請檢查垃圾郵件」。
+
+Email 規劃：
+
+學生確認信依 service_type 使用兩個 template：
+- direct_application：摘要城市、學校、課程、預計月份、週數、submissionId 與下一步。
+- consultation：摘要城市方向、諮詢目標、預計時間、submissionId 與後續聯絡方式。
+
+內部通知信寄到 lilaiireland@gmail.com，主旨格式：
+- [網站新名單] 直接報名｜姓名｜城市｜學校
+- [網站新名單] 一對一諮詢｜姓名｜城市方向
+
+Email 必須：
+- 同時提供 HTML 與 plain text。
+- from 使用已驗證的 lilaiireland.com 地址，例如 application@lilaiireland.com。
+- reply-to 可設為 lilaiireland@gmail.com 或正式客服信箱。
+- 不寄送密碼、護照或敏感證件。
+- 保存 provider message ID、send status 與錯誤；不要把完整 Email body 寫進一般 log。
+- SPF / DKIM / DMARC 與寄送網域必須驗證。
+
+Notion CRM 規劃：
+
+Notion database 建議 properties：
+- Name（title）
+- Submission ID（rich text，唯一對照）
+- Status（status：New / Contacted / Qualified / Quoted / Deposit Pending / Enrolled / Closed Lost）
+- Service Type（select）
+- Email（email）
+- Phone（phone）
+- LINE / Instagram（rich text）
+- City / School / Course（select 或 rich text）
+- Expected Start / Duration / Budget（對應欄位）
+- Accommodation（select）
+- Source / UTM Campaign（select / rich text）
+- ISIC Eligible（checkbox）
+- Submitted At（date）
+- D1 Record ID（rich text）
+
+同步方式：
+1. Queue consumer 用 submissionId 查 D1。
+2. 若 applications.notion_page_id 已存在，更新該 page；否則先以 Submission ID 查重，再建立 page。
+3. 成功後把 Notion page ID / URL 回寫 D1。
+4. Notion 429 / 5xx 使用 exponential backoff；權限或 schema mismatch 標記 failed 並告警，不可無限重試。
+5. Notion 中的人工作業狀態若要回寫 D1，屬第二階段；可用 scheduled sync 或 Notion webhook，第一版先做 D1 → Notion 單向同步。
+
+安全與個資：
+
+- D1、Queue、Email、Notion 只由 Worker server-side 存取。
+- NOTION_TOKEN、Email provider key、Turnstile secret 使用 Wrangler Secret／Cloudflare Secrets，不進 Git、不貼在日誌。
+- Notion integration 僅分享 CRM database，採最小權限；不要給整個 workspace 權限。
+- API response 不回傳完整 application record。
+- 設定個資保存期限、刪除／匯出流程、內部存取權限與 audit trail。
+- 一般 logs 不記姓名、Email、電話、additional_notes 或完整 request body。
+
+實作階段：
+
+Phase 0 — 決策與帳號準備
+- [ ] 確認每月預估表單量與 Email 量。
+- [ ] 決定 Cloudflare Email Service 或外部 provider。
+- [ ] 確認寄件地址、reply-to、學生與內部 Email 文案。
+- [ ] 提供 Notion CRM database URL / ID 與欄位 schema；建立最小權限 integration。
+- [ ] 確認個資保存與刪除政策。
+
+Phase 1 — D1 與 API
+- [ ] 建立 dev / production D1 database（不可共用測試資料）。
+- [ ] 加入 D1 binding，建立 Drizzle schema 與 migrations。
+- [ ] 實作 POST /api/applications 與 server-side validation。
+- [ ] 加入 idempotency、honeypot、rate limit 與安全 logging。
+- [ ] 前端改呼叫真實 API，實作成功、失敗、timeout 與 retry UX。
+
+Phase 2 — Queue 與 Email
+- [ ] 建立 integration queue 與 Dead Letter Queue。
+- [ ] 設定 Email sending domain / binding 或 provider secret。
+- [ ] 建立 direct_application / consultation 的 HTML + text templates。
+- [ ] 實作學生確認信與內部通知信，保存 message ID / status。
+- [ ] 測試成功、temporary failure、permanent bounce、duplicate delivery。
+
+Phase 3 — Notion CRM
+- [ ] 對照並鎖定 Notion database property schema。
+- [ ] 實作 create / update / deduplicate。
+- [ ] 保存 notion_page_id，處理 rate limit、權限錯誤與 schema mismatch。
+- [ ] 用測試 CRM database 驗證後才切正式 database。
+
+Phase 4 — QA 與上線
+- [ ] 直接報名與諮詢各做完整 E2E。
+- [ ] 驗證 D1 record、兩封 Email、Notion page 與狀態回寫。
+- [ ] 驗證 API 失敗不清空表單，外部整合失敗不遺失名單。
+- [ ] 驗證 spam / rate limit / Turnstile、個資 logs、secret 管理。
+- [ ] 建立重送、人工補同步、DLQ 處理與 rollback runbook。
+- [ ] workers.dev 驗收後才考慮 production route。
+
+開始實作前需要使用者提供／確認：
+
+- 每月預估表單與 Email 數量。
+- 希望的寄件地址與 reply-to。
+- Email provider 選擇；若使用既有 provider，只需確認 provider 名稱與建立 Cloudflare Secret，不要把 key 寫進對話或 source code。
+- Notion CRM database 的 URL / ID、現有 properties 與希望的 status 流程。
+- 是否需要 D1 → Notion 單向同步，或第二階段也要 Notion status 回寫 D1。
+- 隱私權政策、同意文案版本與個資保存期限。
