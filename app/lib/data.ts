@@ -1,0 +1,61 @@
+export const schoolOptions = [
+  "ISI Dublin",
+  "Erin College Dublin",
+  "Erin College Cork",
+  "Atlas Language School",
+  "NED College",
+  "NED College Limerick",
+  "ICOT College",
+  "ICOT College Cork",
+  "ELI Schools",
+  "Babel Academy of English",
+  "Centre of English Studies",
+  "Emerald Cultural Institute",
+  "Cork English College",
+  "Bridge Mills Galway",
+  "Limerick Language Centre",
+  "Liffey College",
+  "Apollo Language Centre",
+  "SEDA College",
+  "Everest English",
+  "Active Language Learning",
+  "ATC Language Schools",
+  "EC English",
+  "English Path",
+  "Academic Bridge",
+  "Delfin English School",
+  "Twin English Centre",
+  "其他指定學校",
+  "尚未確定",
+];
+
+export const courseOptions = [
+  { label: "尚未確定／希望諮詢" },
+  { label: "25+8 長期語言課程" },
+  { label: "其他長期語言課程" },
+  { label: "一般英語短期課程" },
+  { label: "IELTS 課程" },
+  { label: "商用英文課程" },
+  { label: "其他" },
+];
+
+export const testimonials = [
+  {
+    id: 1,
+    name: "Sharon",
+    quote: "從行前疑問到落地後遇到的困難，哩來都會盡力幫忙解決。不只會分析語校利弊，也會提醒租房注意事項；抵達後還有台灣人聚會，讓人在愛爾蘭也不會覺得孤單。",
+    tags: ["落地支援", "語校分析", "台灣人社群"],
+  },
+  {
+    id: 2,
+    name: "許芷琳",
+    quote: "從一開始諮詢到出發，訊息回覆速度很快，也會積極協助解決問題。哩來提供很多實用資料，語校也會根據需求推薦；抵達後仍保持聯繫，讓人感覺隨時都有溫暖的後盾。",
+    tags: ["回覆快速", "實用資料", "在地陪伴"],
+  },
+  {
+    id: 3,
+    name: "Hua Hua",
+    quote: "在決定讀語校前觀察了很久，最後選擇哩來，是因為能感受到他們真的有責任心。每一次回覆都很認真，不會亂畫大餅，也不會只看預算推薦學校，而是真的理解需求。",
+    tags: ["值得信任", "認真回覆", "社群活動"],
+  },
+];

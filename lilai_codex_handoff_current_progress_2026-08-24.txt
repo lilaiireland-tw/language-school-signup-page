@@ -1,0 +1,961 @@
+哩來愛爾蘭 Headless Frontend / Cloudflare Workers 專案交接進度
+
+更新日期：2026-08-24
+專案：LilaiIreland Website Frontend Migration
+目前階段：Vinext 前端已成功部署到 Cloudflare Workers 測試網址，尚未切正式 WordPress 路由
+
+==================================================
+1. 專案目標
+==================================================
+
+目前正式網站：
+https://lilaiireland.com
+
+既有網站：WordPress
+
+核心限制：
+- 既有 SEO 已開始運作
+- 所有既有公開 URL 都必須維持不變
+- 目標不是搬掉 WordPress，而是逐步把前端顯示層改成程式化前端
+- WordPress 仍保留作為：
+  - CMS
+  - 文章管理
+  - WooCommerce
+  - 商品
+  - 會員
+  - 綠界金流
+  - 後台管理
+  - 既有未遷移頁面的 origin
+
+目前採用方向：
+
+使用者
+  ↓
+Cloudflare
+  ├─ 指定路徑 → Cloudflare Worker / Vinext 前端
+  └─ 其他路徑 → 原 WordPress
+
+初期優先從：
+/language-school-signup/
+
+開始測試與替換。
+
+
+==================================================
+2. 目前正式網域與 DNS 狀態
+==================================================
+
+Cloudflare：
+- lilaiireland.com 已成功加入 Cloudflare
+- Cloudflare 已顯示：
+  Your domain is now protected by Cloudflare
+- 代表 Cloudflare 已正式成為 DNS / Proxy 層
+
+網域註冊：
+- 網域仍在 WordPress.com 購買
+- 沒有把網域轉移到 Cloudflare
+
+目前架構：
+
+Domain Registrar
+WordPress.com
+      ↓
+Nameservers
+Cloudflare
+      ↓
+Origin
+WordPress.com hosting
+
+Nameserver：
+- 已切到 Cloudflare
+
+DNS 注意事項：
+- 已人工核對 WordPress.com 原本 DNS records
+- 重要紀錄包括：
+  - WordPress root A records
+  - www
+  - apply
+  - admin
+  - Google Workspace MX
+  - SPF
+  - DKIM
+  - DMARC
+  - Google Site Verification
+  - WordPress DKIM / _domainkey records
+
+正式切換 Worker 前，不應任意刪除 DNS records。
+
+
+==================================================
+3. SEO 絕對限制
+==================================================
+
+這是整個專案最重要的限制之一。
+
+既有 URL 不可以因為前端遷移而改變。
+
+例如目前存在：
+https://lilaiireland.com/language-school-signup/
+
+未來即使由 Worker / Vinext / Next.js render，
+網址仍然必須是：
+https://lilaiireland.com/language-school-signup/
+
+而不是：
+https://apply.lilaiireland.com/
+https://lilaiireland.com/new-language-school-signup/
+
+不要因為 frontend migration 任意：
+- 修改 slug
+- 建立不必要的 301
+- 改 canonical
+- 改文章 URL
+- 改商品 URL
+- 改 category URL
+
+SEO migration 時至少必須保持：
+- URL
+- <title>
+- meta description
+- canonical
+- H1
+- robots / indexability
+- structured data
+- internal links
+- HTTP status code
+- sitemap 中的 URL
+- Open Graph metadata
+- featured image / OG image
+- Rank Math 既有重要 SEO metadata（若有）
+
+任何正式 URL 接管前，先比較：
+WordPress 原頁
+vs
+Worker 新頁
+
+
+==================================================
+4. 目前前端技術狀態
+==================================================
+
+目前專案技術：
+
+Vinext
+Vite
+Cloudflare Vite Plugin
+Wrangler
+Cloudflare Workers
+React / Next-compatible App Router
+
+專案目前名稱：
+site-creator-vinext-starter
+
+目前專案結構已有：
+- App Router
+- 1 page
+- 1 layout
+- Tailwind CSS
+- lucide-react
+- next/headers
+- next/navigation
+
+
+==================================================
+5. Vinext compatibility check
+==================================================
+
+已執行：
+npx vinext check
+
+結果：
+
+Overall: 100% compatible
+7 supported
+0 partial
+0 issues
+
+支援項目：
+
+Imports: 2/2 fully supported
+✓ next/headers
+✓ next/navigation
+
+Libraries: 2/2 compatible
+✓ tailwindcss
+✓ lucide-react
+
+Project structure:
+✓ App Router
+✓ 1 page
+✓ 1 layout
+
+目前 Vinext compatibility 沒有已知阻塞問題。
+
+
+==================================================
+6. Cloudflare Vinext 初始化
+==================================================
+
+已完成 Cloudflare deployment setup。
+
+專案已具備：
+- wrangler.jsonc
+- vite.config.ts
+
+曾遇到：
+Missing Cloudflare deployment setup: Wrangler config.
+Run `vinext init --platform=cloudflare` first.
+
+此問題已處理。
+
+
+==================================================
+7. Cloudflare Workers.dev
+==================================================
+
+Cloudflare 帳號已建立 workers.dev subdomain。
+
+帳號 workers.dev namespace：
+lilaiireland.workers.dev
+
+這個網址目前作為正式網域切換前的獨立測試環境。
+
+
+==================================================
+8. KV cache 問題紀錄
+==================================================
+
+Vinext 初始化後，wrangler.jsonc 曾出現 placeholder：
+<your-kv-namespace-id>
+
+導致部署失敗：
+KV namespace '<your-kv-namespace-id>' is not valid.
+
+以及：
+Method not allowed for this authentication scheme
+
+Vinext build 本身當時已成功，只是 KV cache binding 有問題。
+
+目前已完成調整，最終 Worker 可以成功 deploy。
+
+後續如果要使用真正 Vinext KV cache，
+可建立正式 KV namespace，再把 binding 加回來：
+VINEXT_KV_CACHE
+
+目前不要再次填入 placeholder ID。
+
+如果目前專案沒有真的需要 ISR / data cache，
+可以暫時不啟用 KV。
+
+
+==================================================
+9. Cloudflare Images
+==================================================
+
+部署過程曾出現：
+The Cloudflare image optimizer requires an `IMAGES` Images binding.
+
+當時 Vinext fallback：
+serving images unoptimized
+
+後續 deploy log 中 Worker 已辨識：
+env.IMAGES
+
+後續請確認：
+- Cloudflare Images binding 是否真的需要
+- Next Image / Vinext Image optimizer 是否正常
+- 若不需要 Cloudflare Images，可避免增加不必要複雜度
+
+
+==================================================
+10. 目前最重要進度：Worker 已成功部署
+==================================================
+
+已成功執行：
+npx @vinext/cloudflare deploy
+
+部署成功結果：
+Deployed site-creator-vinext-starter triggers
+
+目前測試 URL：
+https://site-creator-vinext-starter.lilaiireland.workers.dev
+
+Current Version ID：
+5aa3541a-2cf4-43f7-8f40-73f96c69922f
+
+目前狀態：
+- Cloudflare Workers deploy：成功
+- workers.dev 測試 URL：成功建立
+- 正式 lilaiireland.com route：尚未切換
+
+
+==================================================
+11. Static assets 狀態
+==================================================
+
+最近一次 deploy 已成功上傳大量 frontend assets。
+
+包含：
+- /lilai-assets/
+- /_next/static/
+- /og.png
+- favicon
+- school logos
+- community images
+- gift/support images
+- Google logo
+- Lilai logo
+
+部署紀錄顯示：
+Uploaded 53 files
+Success
+
+部分已確認存在的 assets：
+
+/lilai-assets/lilai-logo.png
+/lilai-assets/google-logo.png
+/lilai-assets/community-walk.jpg
+/lilai-assets/community-seaside.jpg
+/lilai-assets/community-extra-01.jpg
+/lilai-assets/community-extra-02.jpg
+
+/lilai-assets/schools/logo-isi-learning.png
+/lilai-assets/schools/logo-atlas-language-school.png
+/lilai-assets/schools/logo-ned-college.png
+/lilai-assets/schools/logo-icot-college.png
+/lilai-assets/schools/logo-eli-schools.png
+/lilai-assets/schools/logo-erin-college.png
+/lilai-assets/schools/logo-emerald-cultural-institute.png
+/lilai-assets/schools/logo-cork-english-college.png
+/lilai-assets/schools/logo-babel-academy.png
+/lilai-assets/schools/logo-liffey-college.png
+
+Codex 接手後請先用 browser / network tab 檢查：
+- 所有主要 asset 回 200
+- 沒有 404 static asset
+- 沒有 CSS load failure
+- 沒有 JS chunk failure
+- 沒有 RSC request failure
+
+
+==================================================
+12. Vite warnings
+==================================================
+
+目前 build 可以成功，但仍有 Vite warning：
+
+JSON import "./.openai/hosting.json" without import attributes
+
+以及：
+
+import "./build/sites-vite-plugin" without a file extension
+
+Vinext / Vite 提醒未來：
+configLoader: 'native'
+可能成為預設。
+
+目前不是 deployment blocker。
+
+Codex 可以在不破壞專案的前提下修正：
+- JSON import 加 import attributes
+- plugin import 補 extension
+
+但不要為了清 warning 大幅重構 vite.config.ts。
+
+
+==================================================
+13. npm / dependency 狀態
+==================================================
+
+曾經執行：
+npm audit fix --force
+
+導致多個 dependency 被強制更新，包括：
+- Next
+- React server DOM
+- Vite
+- Vinext
+- Cloudflare Vite Plugin
+- Drizzle Kit
+- Wrangler
+
+曾出現 peer dependency warnings。
+
+因此後續請：
+不要再次盲目執行 npm audit fix --force
+
+優先原則：
+1. build success
+2. runtime success
+3. deployment success
+
+高於：
+npm audit = 0
+
+若要處理 vulnerabilities，先判斷：
+- 是否只是 dev dependency
+- 是否進 production bundle
+- 是否真的需要該 dependency
+- 是否能安全升級
+
+
+==================================================
+14. Windows 開發環境問題
+==================================================
+
+本機環境：
+Windows
+Git Bash / MINGW64
+
+曾遇到：
+WRANGLER_LOG_PATH=.wrangler/wrangler.log
+
+Windows npm script 無法直接執行的問題。
+
+錯誤：
+'WRANGLER_LOG_PATH' 不是內部或外部命令
+
+建議統一使用：
+cross-env
+
+例如：
+
+"dev": "cross-env WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext dev"
+"build": "cross-env WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext build"
+
+或移除不必要的 WRANGLER_LOG_PATH。
+
+
+==================================================
+15. 原始 UI / 前端來源
+==================================================
+
+目前已有一套 HTML / CSS / JS UI prototype。
+
+原始檔案曾包含：
+- index.html
+- styles.css
+- script.js
+- assets/
+
+UI 內容包含：
+- Hero
+- Lilai brand
+- Alex / Arsha
+- Flight route animation
+- CTA
+- YouTube
+- Pain points
+- Journey levels
+- Student reviews
+- Language school routes
+- Support cards
+- Community carousel
+- Final CTA
+
+原始 JS 功能包含：
+- CTA mapping
+- IntersectionObserver reveal
+- horizontal auto scroll
+- number count-up
+- flight route animation
+- journey level interaction
+- magnetic buttons
+- school cards
+- school logo stack
+- mobile school popover
+
+Codex 接手後應將這些功能整理成 component-based frontend，
+不要重新塞回 WordPress Custom HTML。
+
+
+==================================================
+16. WordPress 最終角色
+==================================================
+
+長期規劃：
+
+WordPress = Headless CMS + commerce backend
+
+WordPress 留下：
+- /wp-admin
+- Posts
+- Pages
+- Media
+- ACF
+- Custom Post Types
+- Taxonomies
+- WooCommerce
+- Orders
+- Users
+- Payment
+- ECPay
+- Downloads
+- Email
+
+Cloudflare / Vinext 前端負責：
+- Frontend rendering
+- UI
+- Interaction
+- SEO pages
+- School filters
+- Landing pages
+- Article frontend（後期）
+- Product frontend（後期）
+
+
+==================================================
+17. API 整合方向
+==================================================
+
+後續逐步接 WordPress REST API。
+
+公開資料可先使用：
+/wp-json/wp/v2/posts
+/wp-json/wp/v2/pages
+/wp-json/wp/v2/categories
+/wp-json/wp/v2/tags
+/wp-json/wp/v2/media
+
+WooCommerce 公開商品展示可考慮：
+/wp-json/wc/store/v1/products
+
+不要把以下資料硬寫進 source code：
+- WordPress admin password
+- WooCommerce secret
+- Application Password
+- API secret
+- Cloudflare token
+
+私密資訊使用：
+- .env
+- .env.local
+- Cloudflare Secrets
+
+並加入 .gitignore。
+
+
+==================================================
+18. 第一階段正式路由目標
+==================================================
+
+目前優先完成：
+https://lilaiireland.com/language-school-signup/
+
+新的 Vinext / Worker frontend 必須接管這個原有 URL。
+
+最終 Cloudflare routing：
+lilaiireland.com/language-school-signup
+lilaiireland.com/language-school-signup/*
+
+其他 URL：
+lilaiireland.com/*
+
+仍然回 WordPress。
+
+不要把整個 lilaiireland.com/* 直接綁到 Worker。
+
+
+==================================================
+19. 正式 Worker Route 前的驗收條件
+==================================================
+
+Codex 不應直接切正式 route。
+
+先完成 workers.dev 測試。
+
+必測：
+- Desktop
+- Mobile
+- Tablet
+- Safari
+- Chrome
+- Edge
+
+UI：
+- Layout
+- Typography
+- Images
+- Hero
+- Cards
+- Buttons
+- Animations
+- Responsive
+- Overflow
+
+Functional：
+- CTA links
+- Forms
+- Client-side JS
+- RSC
+- API
+- YouTube embed
+- External links
+- Google review link
+
+Technical：
+- Console errors
+- Network 404
+- JS chunk 404
+- CSS 404
+- Image 404
+- hydration error
+- RSC error
+- 500
+- redirect loop
+
+SEO：
+- title
+- meta description
+- canonical
+- H1
+- OG image
+- robots
+- structured data
+- trailing slash behavior
+- HTTP status
+
+
+==================================================
+20. 正式切換 /language-school-signup/ 前
+==================================================
+
+Codex 必須先抓取目前 WordPress 正式頁面：
+https://lilaiireland.com/language-school-signup/
+
+紀錄：
+- status code
+- canonical
+- title
+- description
+- OG
+- robots
+- H1
+- structured data
+- internal links
+
+新 Worker page 必須逐項對照。
+
+原 URL 不得改。
+
+
+==================================================
+21. Git / GitHub 狀態
+==================================================
+
+目前尚未確認正式 GitHub repository 已建立。
+
+建議立即建立：
+Private GitHub Repository
+
+名稱可用：
+lilaiireland-frontend
+或
+lilaiireland-web
+
+Git 策略：
+
+main
+→ production / stable
+
+develop
+→ optional integration branch
+
+feature/*
+→ feature branches
+
+目前至少：
+local git + GitHub private remote
+都應該有。
+
+.gitignore 至少：
+
+node_modules/
+dist/
+.next/
+.wrangler/
+.env
+.env.local
+.env.*
+*.log
+
+可以 commit：
+.env.example
+
+但只能放 variable names，不能放 secrets。
+
+
+==================================================
+22. 建議 Codex 現在立刻做的任務
+==================================================
+
+Priority 1 — 建立安全版本基準
+
+1. 檢查：
+git status
+
+2. 若尚未 git init：
+git init
+
+3. 建立 .gitignore
+
+4. 確認沒有：
+- API key
+- WordPress password
+- Cloudflare token
+- WooCommerce secret
+
+5. 建立目前「成功 deploy」checkpoint commit
+
+建議 commit：
+chore: checkpoint successful workers.dev deployment
+
+
+Priority 2 — workers.dev QA
+
+正式測試：
+https://site-creator-vinext-starter.lilaiireland.workers.dev
+
+使用 browser 檢查：
+- responsive
+- assets
+- UI
+- console
+- network
+- routing
+- form
+- metadata
+
+建立：
+docs/workers-dev-qa.md
+
+
+Priority 3 — Rename Worker
+
+目前 Worker：
+site-creator-vinext-starter
+
+這是 starter 名稱，不適合 production。
+
+建議未來改成：
+lilai-web
+
+如果只做單頁，也可以：
+lilai-language-school-signup
+
+但若之後逐步接管整站，建議：
+lilai-web
+
+
+Priority 4 — Refactor frontend
+
+建議整理為：
+
+app/
+├─ layout.tsx
+├─ page.tsx
+└─ language-school-signup/
+   └─ page.tsx
+
+components/
+├─ ui/
+├─ layout/
+├─ sections/
+└─ shared/
+
+features/
+├─ language-school-signup/
+└─ schools/
+
+lib/
+├─ wordpress/
+├─ woocommerce/
+├─ seo/
+└─ utils/
+
+public/
+└─ lilai-assets/
+
+styles/
+
+
+==================================================
+23. 建議後續正式前端架構
+==================================================
+
+最終逐步走向：
+
+Cloudflare
+├─ Worker frontend
+│  ├─ homepage
+│  ├─ landing pages
+│  ├─ school pages
+│  ├─ article frontend
+│  └─ product frontend
+│
+└─ WordPress origin
+   ├─ wp-admin
+   ├─ checkout
+   ├─ cart
+   ├─ my-account
+   ├─ WooCommerce
+   ├─ ECPay
+   └─ 未遷移 pages
+
+第一階段不要 Headless：
+- /cart/
+- /checkout/
+- /my-account/
+- payment callback
+- 下載權限
+
+這些先留 WooCommerce。
+
+
+==================================================
+24. Codex 的工作原則
+==================================================
+
+請 Codex 遵守：
+
+1. 不要改既有正式 URL
+2. 不要一次把整站切到 Worker
+3. 不要破壞 WordPress
+4. 不要改 DNS
+5. 不要改 Nameserver
+6. 不要直接操作 production route，除非明確確認
+7. 不要用 npm audit fix --force
+8. 不要把 secrets commit
+9. 所有重要改動先 commit
+10. 每個正式 deployment 前先 build
+11. 每次 deployment 後記錄 Version ID
+12. 新前端 metadata 要跟原 URL SEO 對齊
+13. 舊 URL 有排名時，優先保持內容與 semantic structure
+14. 若需 redirect，必須先列出理由，不可自行新增
+15. 不要改 WordPress sitemap URL，除非 migration strategy 已確認
+
+
+==================================================
+25. Codex 下一步執行任務
+==================================================
+
+先執行：
+git status
+
+然後建立：
+docs/current-deployment-state.md
+docs/workers-dev-qa.md
+docs/url-preservation-plan.md
+
+current-deployment-state.md 需記錄：
+
+Worker URL:
+https://site-creator-vinext-starter.lilaiireland.workers.dev
+
+Version ID:
+5aa3541a-2cf4-43f7-8f40-73f96c69922f
+
+Production custom route:
+NOT ENABLED
+
+
+workers-dev-qa.md：
+對 workers.dev 進行全面 QA。
+
+
+url-preservation-plan.md：
+從：
+https://lilaiireland.com/sitemap_index.xml
+
+開始盤點目前 SEO URLs。
+
+若可公開存取，也讀取：
+
+/wp-json/wp/v2/posts?per_page=100
+/wp-json/wp/v2/pages?per_page=100
+/wp-json/wp/v2/categories?per_page=100
+/wp-json/wp/v2/tags?per_page=100
+/wp-json/wc/store/v1/products
+
+建立完整 URL inventory。
+
+
+==================================================
+26. Codex 最優先目標
+==================================================
+
+Milestone 1：
+workers.dev 上的 language-school-signup 完整可用
+
+Milestone 2：
+在完全不改 URL 與 SEO 的條件下接管：
+https://lilaiireland.com/language-school-signup/
+
+Milestone 3：
+建立可重複使用的 Headless frontend 架構
+
+Milestone 4：
+逐頁從 WordPress frontend 遷移到 Worker frontend
+
+
+==================================================
+27. 目前最新狀態摘要
+==================================================
+
+[✅] WordPress 正式網站仍在線
+[✅] Cloudflare 帳號建立
+[✅] lilaiireland.com 已接到 Cloudflare
+[✅] Cloudflare Nameserver active
+[✅] 原 WordPress 繼續當 origin
+[✅] Vinext compatibility 100%
+[✅] Cloudflare deployment config 已初始化
+[✅] workers.dev subdomain 已建立
+[✅] Vinext production build 成功
+[✅] 靜態 assets 已上傳
+[✅] Cloudflare Worker 已成功 deploy
+[✅] workers.dev 測試 URL 已取得
+
+[⏳] workers.dev 全站 QA
+[⏳] GitHub private repo
+[⏳] Worker 正式命名整理
+[⏳] SEO metadata comparison
+[⏳] URL inventory
+[⏳] WordPress REST API integration
+[⏳] /language-school-signup/ 正式 Worker Route
+[⏳] 後續整站 Headless migration
+
+
+==================================================
+28. 現在可用的測試網址
+==================================================
+
+https://site-creator-vinext-starter.lilaiireland.workers.dev
+
+Current Version：
+5aa3541a-2cf4-43f7-8f40-73f96c69922f
+
+此版本可作為目前 rollback / QA baseline。
+
+
+==================================================
+29. 最重要提醒
+==================================================
+
+目前已達成：
+
+「新前端成功存在於 Cloudflare Workers」
+
+但尚未達成：
+
+「新前端已接管 lilaiireland.com 正式 URL」
+
+因此目前仍然是安全測試階段。
+
+不要直接把 root route 設成：
+lilaiireland.com/*
+
+第一個正式路由只應考慮：
+lilaiireland.com/language-school-signup
+lilaiireland.com/language-school-signup/*
+
+而且必須在 workers.dev QA 與 SEO comparison 完成後才執行。
