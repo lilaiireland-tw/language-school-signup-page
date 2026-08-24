@@ -32,7 +32,7 @@
 - Git：本機 repository 已建立，branch 為 `main`
 - 最新 checkpoint commit：`eeca02d chore: checkpoint successful workers.dev deployment`
 - 固定圖片：由 Workers Static Assets 部署；CMS 圖片未來使用 WordPress Media
-- 表單後端最新需求：外部 MySQL 作為唯一資料來源，Worker 經 Hyperdrive 存取；使用公司 Google Workspace Gmail API 寄信；Notion CRM 經 Queue 同步（供應商與帳號設定尚待確認）
+- 表單後端最新決策：Cloudflare D1（SQLite semantics）作為報名資料唯一來源；WordPress 管理員頁面日後透過受保護的 Worker API 讀寫 D1，不重複寫入 WordPress MySQL；Gmail 與 Notion 經 Queue 非同步處理。
 
 ## 目前最高優先順序
 
@@ -1411,3 +1411,45 @@ Gmail API：
 - Google Workspace 是否有 Super Admin 可設定 domain-wide delegation。
 - 專用寄件信箱與 reply-to。
 - 是否接受 service account domain-wide delegation；若否，改採 OAuth refresh token。
+
+
+==================================================
+33. D1 後端架構定案與分支起點（2026-08-24）
+==================================================
+
+此章取代第 32 章的 MySQL 資料庫決策；第 32 章保留為討論歷程。Gmail API 的 OAuth 2.0、Cloudflare Secret 與 Queue 原則仍有效。
+
+最終決策：
+- 報名與諮詢資料使用 Cloudflare D1（SQLite semantics）。
+- D1 是報名系統唯一真實資料來源（source of truth）。
+- 不把同一份報名資料重複寫入 WordPress MySQL。
+- WordPress 後台未來安裝自訂管理外掛，透過受保護的 Worker Admin API 查詢與更新 D1。
+- Notion 是 CRM projection，不是主資料庫。
+- 後端使用 Cloudflare Workers + TypeScript，不另外部署 FastAPI、Flask、VPS 或獨立 Node.js server。
+- 前端、公開 API 與管理 API 部署在目前同一個 Worker。
+
+預定路由：
+- `POST /api/applications`：公開表單提交。
+- `GET /api/admin/applications`：WordPress 管理員清單。
+- `GET /api/admin/applications/:id`：報名詳情。
+- `PATCH /api/admin/applications/:id`：更新 CRM 狀態與內部備註。
+
+後端目錄分層已建立：
+- `worker/routes/`：HTTP request / response。
+- `worker/validation/`：server-side schema 與欄位驗證。
+- `worker/services/`：應用流程。
+- `worker/repositories/`：D1 SQL 與資料存取。
+- `worker/queue/`：Gmail、內部通知與 Notion 非同步工作。
+- `worker/shared/`：後端共用工具。
+- `migrations/`：版本化 D1 SQL migrations。
+
+Git checkpoint：
+- 新分支：`feat/d1-applications-backend`
+- 本階段只建立目錄職責與架構說明，尚未建立 Cloudflare 正式 D1 database，也尚未部署 API。
+
+下一步：
+1. 設計 `applications` 與 `integration_jobs` schema，建立第一個 D1 migration。
+2. 建立 development / production D1，在 Wrangler 設定 `DB` binding。
+3. 實作 `POST /api/applications`：server-side validation、idempotency 與錯誤回應。
+4. 將 `app/lib/api.ts` 的 mock submit 改成真實 API request。
+5. 本地 migration、build 與 API integration test 通過後，才套用 production migration 與部署。
