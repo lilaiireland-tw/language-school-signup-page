@@ -1,0 +1,195 @@
+# GEO Audit Report: 哩來愛爾蘭 (LiLai Ireland)
+
+**Audit Date:** 2026-08-24
+**URL:** https://lilaiireland.com
+**Legal Entity:** 築夢愛爾國際留遊學顧問 Dream Eire International
+**Business Type:** Agency / Services (Ireland study-abroad consultancy for Taiwanese students), with a small WooCommerce shop
+**Primary Language / Market:** zh-TW (Traditional Chinese, Taiwan)
+**Pages Analyzed:** 21 URLs discovered (12 posts, 8 pages, 1 category); 7 fetched in depth
+**Platform:** WordPress + WooCommerce + Elementor + Rank Math SEO, behind Cloudflare
+
+---
+
+## Executive Summary
+
+**Overall GEO Score: 52/100 (Poor)**
+
+LiLai Ireland is a well-crafted, genuinely expert site undermined by two structural problems for AI search. First — and most damaging — the site **blocks every major AI crawler** in robots.txt (ClaudeBot, GPTBot, Google-Extended, CCBot, Bytespider, Amazonbot, Applebot-Extended, meta-externalagent) via Cloudflare's "managed content" defaults, with a `Content-Signal: ai-train=no`. This means Claude, ChatGPT training, and Gemini grounding are told *not* to read or learn from the site — the exact opposite of GEO's goal. Second, as a ~6-month-old brand it has **almost no third-party footprint**: a search for the brand surfaces only competitors (ioutback, 葛瑞特, StudyDIY, ed:m), never LiLai itself.
+
+The good news: the underlying content and expertise are strong. The founders are real, credentialed (Alex — UCD MSc Computer Science; Arsha — TCD MSc Digital Marketing + TESOL), the blog is deep, chaptered, and full of exactly the specific, quotable answers AI systems love. The site is server-rendered with a clean Rank Math schema baseline. Fix the crawler policy, complete the entity schema, and mark up the existing Q&A content, and this site can move from "Poor" to "Good" quickly — the raw material is already there.
+
+### Score Breakdown
+
+| Category | Score | Weight | Weighted |
+|---|---|---|---|
+| AI Citability | 62/100 | 25% | 15.5 |
+| Brand Authority | 32/100 | 20% | 6.4 |
+| Content E-E-A-T | 68/100 | 20% | 13.6 |
+| Technical GEO | 48/100 | 15% | 7.2 |
+| Schema & Structured Data | 55/100 | 10% | 5.5 |
+| Platform Optimization | 42/100 | 10% | 4.2 |
+| **Overall GEO Score** | | | **52/100** |
+
+---
+
+## Critical Issues (Fix Immediately)
+
+### 1. All major AI crawlers are blocked in robots.txt
+The `/robots.txt` served via Cloudflare Managed Content explicitly disallows the crawlers that feed AI answers:
+
+```
+User-agent: *
+Content-Signal: search=yes,ai-train=no,use=reference
+User-agent: GPTBot          Disallow: /
+User-agent: ClaudeBot       Disallow: /
+User-agent: Google-Extended Disallow: /
+User-agent: CCBot           Disallow: /
+User-agent: Bytespider      Disallow: /
+User-agent: Amazonbot       Disallow: /
+User-agent: Applebot-Extended  Disallow: /
+User-agent: meta-externalagent Disallow: /
+```
+
+**Impact:** ClaudeBot (Claude), GPTBot (OpenAI), Google-Extended (Gemini grounding & training), and CCBot (Common Crawl — a dataset most LLMs train on) are all locked out. For a GEO strategy this is self-defeating: you are asking the AI engines not to know you exist.
+**Nuance:** the *live-search* fetchers — `OAI-SearchBot` / `ChatGPT-User` (ChatGPT web search) and `PerplexityBot` — are **not** blocked, so real-time citation is still technically possible on those two. But the training/grounding crawlers, which drive "unprompted" brand recall, are shut out.
+**Fix:** In Cloudflare, disable the AI-crawler block (Cloudflare Dashboard → your zone → **AI Audit / robots.txt "Manage AI bots"**, or turn off "Block AI bots" / the managed robots.txt feature). At minimum, allow `ClaudeBot`, `GPTBot`, `Google-Extended`, and `CCBot`. Decide `ai-train` deliberately, but for GEO you generally want `ai-input` and reference use permitted.
+
+### 2. No content-level structured data for a Q&A-heavy consultancy
+The site publishes extensive FAQ and step-by-step guide content (see the `延伸問答` Q&A block on blog posts, `常見問題` on `/consult/` and `/ireland-study-consultation/`) but there is **zero FAQPage, HowTo, or Service schema anywhere**. AI engines lean heavily on this markup to lift answer blocks verbatim. You have the content and none of the machine-readable signals.
+
+---
+
+## High Priority Issues (Fix Within 1 Week)
+
+### 3. No `llms.txt` file
+`/llms.txt` returns 404. This emerging standard gives AI systems a curated map of your best content. For a content-rich advisory site it's a cheap, high-leverage add.
+
+### 4. Organization schema is a hollow shell
+The `Organization` node exists but every entity-defining field is `null`:
+
+```
+name: 築夢愛爾國際留遊學顧問 Dream Eire International   ✓
+logo: present                                          ✓
+sameAs: null      ✗   email: null   ✗   telephone: null ✗
+address: null     ✗   description: null ✗
+```
+
+Meanwhile the site *does* link Instagram, LinkedIn, and Threads in the footer — but they're absent from `sameAs`, so AI can't connect the social entities to the business. This is the single biggest quick win for entity recognition.
+
+### 5. Author attribution is generic, wasting real E-E-A-T
+The blog's greatest asset is that Alex and Arsha are real, named, credentialed experts writing from lived experience (e.g. "含 Alex 2023 年實際申請經驗"). Yet the `Person`/`author` schema resolves to a generic site account ("哩來愛爾蘭", `sameAs` → an old `lilaiireland-mhcjd.wordpress.com` blog, no `jobTitle`, no credentials). AI attributes the expertise to nobody.
+**Fix:** Create real author profiles for Alex and Arsha (with `jobTitle`, `alumniOf` = UCD / Trinity College Dublin, `sameAs` → their LinkedIn), and assign posts to the actual author.
+
+### 6. Near-zero brand authority footprint
+A brand search (`哩來愛爾蘭` / `lilaiireland`) returns only competitors, never LiLai. No Wikipedia, no Reddit/PTT/Dcard threads, no YouTube presence surfaced. Brand mentions now correlate ~3x more strongly with AI citation than backlinks do (Ahrefs, Dec 2025), so this is a strategic gap, not just vanity.
+
+---
+
+## Medium Priority Issues (Fix Within 1 Month)
+
+### 7. Duplicated H1 / heading hierarchy on every page
+The site title `哩來愛爾蘭｜愛爾蘭留遊學代辦，在地學長姐陪你規劃語校與生活` is rendered as an `<h1>` on **every** page (likely the logo/header), so content pages carry 2–3 H1s (`/consult/` has 2, `/ireland-study-consultation/` has 3, blog posts have 2). This dilutes the topical signal of the real page heading. Convert the header/logo to non-heading markup and keep exactly one content-specific H1 per page.
+
+### 8. WooCommerce shop has no Product/Offer schema
+`/shop/` emits only `CollectionPage` + `BreadcrumbList`, no `Product`, `Offer`, or `AggregateRating`. If products/packages are sold there, they are invisible to AI shopping and comparison answers.
+
+### 9. Thin cornerstone pages
+- **Homepage:** ~318 CJK characters of body text — mostly hero imagery + CTAs. Very little extractable substance for the site's most-linked page.
+- **`/recommended-ireland-language-schools/`:** ~153 CJK characters, 0 H2s — a page that should be a rich, comparison-table asset (exactly what AI cites) is nearly empty.
+
+### 10. Missing entity/contact trust signals
+No `mailto:` or `tel:` on the homepage, no LocalBusiness/ContactPoint data. Even for a remote consultancy, a clear contact block plus `ContactPoint` schema strengthens trust and entity completeness.
+
+---
+
+## Low Priority Issues (Optimize When Possible)
+
+- **`Person.sameAs`** points to a stale `wordpress.com` subdomain rather than current profiles.
+- Add `Article.author` linking to the real person nodes (see #5) once author profiles exist.
+- Consider `BreadcrumbList` is already present (good) — extend consistency to all post types.
+- Homepage `og:image` / Twitter card verified present; ensure every blog post has a unique OG image (currently `summary_large_image` is set globally).
+- Add `speakable` schema to FAQ answers for voice-assistant eligibility.
+
+---
+
+## Category Deep Dives
+
+### AI Citability — 62/100
+**Strengths:** The long-form blog is genuinely citation-ready. The 打工度假 guide runs ~6,400 CJK characters, structured as `第一章…第六章` plus a 10-question `延伸問答` block, packed with the specifics AI extracts: exact dates (11 月 1 日 registration), figures, week-count comparisons (25+8 vs working holiday), and named pitfalls. This is model GEO content.
+**Weaknesses:** The money pages (`/consult/`, `/ireland-study-consultation/`) are decent (~2,300–2,600 chars) but the homepage and schools page are too thin to be quoted, and none of the Q&A content is wrapped in FAQ schema, so extraction is left to chance. Passage-level answer blocks ("What is X? — one-sentence answer") are the fastest lift.
+
+### Brand Authority — 32/100
+Young brand (WordPress content dated Feb–Aug 2026). Owns Instagram (`/lilaiireland/`), LinkedIn (`/company/lilaiireland`), and Threads (`@lilaiireland`), but no third-party validation appeared in search: competitors own the SERP, and there's no Wikipedia, Reddit, PTT, Dcard, or YouTube entity presence. AI entity recognition has little to anchor to. Priority: earn mentions on the platforms Taiwanese study-abroad seekers actually use (Dcard, PTT, YouTube, Threads) and get listed in study-abroad directories.
+
+### Content E-E-A-T — 68/100
+The highest-scoring dimension, and deservedly so. **Experience:** founders live in Ireland and write from personal application/relocation experience. **Expertise:** verifiable credentials (UCD MSc CS; TCD MSc Digital Marketing + TESOL). **Authoritativeness:** detailed About page, consistent authorial voice, terms/agreement page present. **Trust:** freshness is strong (content modified July–Aug 2026). The gap is purely *machine-readability* — the human E-E-A-T is excellent but the structured author attribution throws most of it away (see #5).
+
+### Technical GEO — 48/100
+**Good:** Server-side rendered (WordPress, no JS-dependency for content), HTTPS + Cloudflare, valid `sitemap_index.xml` (Rank Math), correct `canonical`, `lang="zh-TW"`, `robots: follow,index`. **Bad:** the AI-crawler block (Critical #1) is the dominant drag on this score, and there's no `llms.txt`. Fix the crawler policy and this category jumps ~25 points on its own.
+
+### Schema & Structured Data — 55/100
+Rank Math provides a competent baseline graph: `Organization`, `WebSite` + `SearchAction`, `Person`, `Article`, `BreadcrumbList`, `CollectionPage`, `ImageObject`. But it's generic-default: the Organization node is hollow (#4), there's no `FAQPage`/`HowTo`/`Service`/`Product` (#2, #8), and the Person node is a placeholder. All fixable within Rank Math's UI + a few JSON-LD snippets.
+
+### Platform Optimization — 42/100
+- **Perplexity:** accessible — `PerplexityBot` is not blocked. Best near-term citation channel.
+- **ChatGPT (web search):** live fetchers `OAI-SearchBot`/`ChatGPT-User` not blocked, so real-time citation is possible; but `GPTBot` blocked means no training-time brand memory.
+- **Claude:** `ClaudeBot` blocked — effectively invisible.
+- **Google AI Overviews / Gemini:** `Google-Extended` blocked (no Gemini grounding/training); AIO can still draw on the standard index since `Googlebot` isn't blocked, but you've opted out of the generative layer.
+Weak brand authority caps all platforms regardless.
+
+---
+
+## Quick Wins (Implement This Week)
+
+1. **Unblock AI crawlers in Cloudflare** — turn off the managed AI-bot block / allow ClaudeBot, GPTBot, Google-Extended, CCBot. Single highest-impact action in this report. *(Critical #1)*
+2. **Complete the Organization schema** — add `sameAs` (Instagram, LinkedIn, Threads), `email`, `description`, and `contactPoint` in Rank Math → Titles & Meta → Local/Organization. *(High #4)*
+3. **Add FAQPage schema** to `/consult/`, `/ireland-study-consultation/`, and every blog post that already has a `常見問題`/`延伸問答` block. *(Critical #2)*
+4. **Publish `/llms.txt`** listing your best guides (打工度假 guide, 25+8 guide, city guide, school comparison). *(High #3)*
+5. **Create real author profiles** for Alex and Arsha with credentials + LinkedIn `sameAs`, and reassign posts to them. *(High #5)*
+
+## 30-Day Action Plan
+
+### Week 1: Open the doors to AI
+- [ ] Disable the Cloudflare AI-crawler block; verify `robots.txt` no longer disallows ClaudeBot/GPTBot/Google-Extended/CCBot
+- [ ] Reconsider `Content-Signal` to allow `ai-input` (grounding/RAG) and `use=reference` at minimum
+- [ ] Generate and deploy `llms.txt`
+- [ ] Fill in Organization schema (sameAs, email, description, contactPoint)
+
+### Week 2: Make the content machine-readable
+- [ ] Add FAQPage schema to the two consultation pages + top 3 blog posts with Q&A blocks
+- [ ] Add HowTo schema to the step-by-step guide posts (working-holiday application, bank/PPSN)
+- [ ] Add Service schema for the three consultation packages (免費階段評估 / 自主評估包 / 一對一諮詢)
+- [ ] Add Product/Offer schema to `/shop/` items
+
+### Week 3: Fix attribution & hierarchy
+- [ ] Build Alex & Arsha author profiles (jobTitle, alumniOf UCD/TCD, sameAs LinkedIn)
+- [ ] Reassign blog posts to the correct human authors; add visible author bylines + bios
+- [ ] Remove the duplicate site-title H1; enforce one content H1 per page
+
+### Week 4: Build authority & depth
+- [ ] Expand the homepage and `/recommended-ireland-language-schools/` into substantive, citable pages (comparison tables, one-sentence answer leads)
+- [ ] Seed third-party presence: Dcard/PTT answers, a YouTube intro, guest mentions in study-abroad communities — earn brand mentions
+- [ ] Add each post a passage-optimized "TL;DR / 一句話重點" answer block near the top
+
+---
+
+## Appendix: Pages Analyzed
+
+| URL | Type | Notable GEO Issues |
+|---|---|---|
+| `/` | Home | Thin body content (~318 chars); duplicate H1; hollow Org schema |
+| `/about/` | About | Strong E-E-A-T; generic Person schema; no author linkage |
+| `/consult/` | Lead funnel | FAQ block present, no FAQ schema; 2 H1s |
+| `/ireland-study-consultation/` | Packages | Rich; needs Service + FAQ schema; 3 H1s |
+| `/ireland-study-planning/` | Service | Not deep-fetched — review for schema/headings |
+| `/recommended-ireland-language-schools/` | Resource | Very thin (~153 chars, 0 H2); high-value page underbuilt |
+| `/shop/` | WooCommerce | No Product/Offer schema |
+| `/agreement/` | Legal | Trust signal — OK |
+| `/ireland-working-holiday-2026-guide/` | Blog | Excellent citable content; missing FAQ/HowTo schema |
+| + 11 more posts | Blog | Same pattern: strong content, no content-level schema |
+
+**Crawler policy summary:** Blocked — ClaudeBot, GPTBot, Google-Extended, CCBot, Bytespider, Amazonbot, Applebot-Extended, meta-externalagent, CloudflareBrowserRenderingCrawler. Allowed (by omission) — PerplexityBot, OAI-SearchBot, ChatGPT-User, Googlebot, Bingbot. `Content-Signal: search=yes, ai-train=no, use=reference`. No `llms.txt`.
+
+---
+
+*Methodology: GEO-first audit weighting AI Citability 25%, Brand Authority 20%, Content E-E-A-T 20%, Technical GEO 15%, Schema 10%, Platform Optimization 10%. Data collected via direct HTML fetch + schema/heading/robots parsing on 2026-08-24.*

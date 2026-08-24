@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "site-creator-vinext-starter",
-  "compatibility_date": "2026-08-24",
+  "compatibility_date": "2026-08-22",
   "compatibility_flags": [
     "nodejs_compat"
   ],
@@ -16,6 +16,23 @@
   },
   "images": {
     "binding": "IMAGES"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "lilai-applications-production",
+      "database_id": "d7b4209c-fce2-4f0d-9b18-3f19c183b430",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "secrets": {
+    "required": [
+      "ADMIN_API_TOKEN"
+    ]
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
   },
   // "kv_namespaces": [
   //   {

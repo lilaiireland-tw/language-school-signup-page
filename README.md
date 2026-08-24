@@ -42,7 +42,7 @@ npm run build
 - `app/globals.css`：全站樣式與響應式版面
 - `app/lib/data.ts`：合作語校、課程與評論資料
 - `app/lib/types.ts`：表單 payload 型別
-- `app/lib/api.ts`：表單送出整合點，目前仍為模擬
+- `app/lib/api.ts`：表單送出整合點，目前呼叫同網域 `POST /api/applications`
 - `app/lib/analytics.ts`：推送至 `window.dataLayer` 的追蹤事件
 - `public/lilai-assets/`：品牌、學校與開局支援圖片
 - `tests/rendered-html.test.mjs`：關鍵內容回歸檢查
@@ -50,4 +50,4 @@ npm run build
 
 ## 重要提醒
 
-目前表單送出後只會在前端模擬成功，**不會寄信、不會寫入資料庫，也不會送進 CRM**。正式上線前，Alex 必須先依 `PROJECT-DEVELOPMENT-LOG.md` 串接後端並完成失敗狀態處理。
+目前 workers.dev 表單會呼叫 Worker API 並寫入 production D1。Email Queue consumer 與 Notion CRM 同步尚未實作，因此寫入的 integration jobs 會停在 `pending`。尚未設定 `lilaiireland.com` production route。

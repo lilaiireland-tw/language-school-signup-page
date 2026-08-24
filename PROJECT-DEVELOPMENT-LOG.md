@@ -25,14 +25,15 @@
 - 正式網站：https://lilaiireland.com
 - 舊版原型預覽：https://lilai-ireland-language-school-application.hsiad335950.chatgpt.site/
 - Worker 測試網址：https://site-creator-vinext-starter.lilaiireland.workers.dev
-- Worker rollback／QA baseline Version ID：`5aa3541a-2cf4-43f7-8f40-73f96c69922f`
+- Worker 目前 Version ID：`d2e4482a-830f-4c90-a783-f472135ac22b`
+- Worker rollback baseline Version ID：`7e902980-5f41-4d30-883b-db62fd3b509d`（原始 QA checkpoint：`5aa3541a-2cf4-43f7-8f40-73f96c69922f`）
 - Production custom route：**NOT ENABLED**
 - 第一個預定接管 URL：https://lilaiireland.com/language-school-signup/
-- 表單狀態：前端完成，目前仍為 mock submit，尚未寄信、寫入資料庫或建立 CRM 紀錄
+- 表單狀態：workers.dev 前端已呼叫真實 `POST /api/applications`，並已驗證成功寫入 production D1；Email Queue consumer 與 Notion CRM 尚未實作
 - Git：本機 repository 已建立，branch 為 `main`
 - 最新 checkpoint commit：`eeca02d chore: checkpoint successful workers.dev deployment`
 - 固定圖片：由 Workers Static Assets 部署；CMS 圖片未來使用 WordPress Media
-- 表單後端最新決策：Cloudflare D1（SQLite semantics）作為報名資料唯一來源；WordPress 管理員頁面日後透過受保護的 Worker API 讀寫 D1，不重複寫入 WordPress MySQL；Gmail 與 Notion 經 Queue 非同步處理。
+- 表單後端：Cloudflare D1（SQLite semantics）作為唯一真實資料來源；production D1 `lilai-applications-production`（APAC）已建立並套用 migration；Gmail 與 Notion 尚待 Queue 非同步處理。
 
 ## 目前最高優先順序
 
@@ -56,9 +57,9 @@
 
 ## 完整專案進度（2026-08-24）
 
-更新日期：2026-08-24
+更新日期：2026-08-25
 專案：LilaiIreland Website Frontend Migration
-目前階段：Vinext 前端已成功部署到 Cloudflare Workers 測試網址，尚未切正式 WordPress 路由
+目前階段：Vinext 前端與報名 API 已部署到 Cloudflare Workers 測試網址，production D1 E2E 已通過，尚未切正式 WordPress 路由
 
 ==================================================
 1. 專案目標
@@ -1453,3 +1454,96 @@ Git checkpoint：
 3. 實作 `POST /api/applications`：server-side validation、idempotency 與錯誤回應。
 4. 將 `app/lib/api.ts` 的 mock submit 改成真實 API request。
 5. 本地 migration、build 與 API integration test 通過後，才套用 production migration 與部署。
+
+
+==================================================
+34. D1 schema 與報名 API 實作（2026-08-24）
+==================================================
+
+已完成：
+- 建立 `migrations/0001_create_application_tables.sql`。
+- `applications` table 已包含報名、諮詢、UTM、同意版本、ISIC、CRM 狀態、分派顧問與內部備註。
+- `integration_jobs` table 已定義學生確認信、內部通知與 Notion 同步的狀態、重試、provider ID 與錯誤記錄。
+- 建立必要 index、foreign key、CHECK constraint 與 JSON validity constraint。
+- 建立 D1 repository、application service、server-side validation、HTTP response 與 admin auth 層。
+- 前端 `app/lib/api.ts` 已從 mock submit 改為真實 `POST /api/applications`。
+- 表單 API 失敗時保留表單並在頁面顯示錯誤，不誤顯示成功。
+- Wrangler 已設定 `DB` binding、`ADMIN_API_TOKEN` required secret、migrations directory 與 observability。
+- 已生成 `worker-configuration.d.ts`，Worker 使用生成的 Cloudflare binding types。
+
+已實作 API：
+- `POST /api/applications`：server-side validation、request size limit、prepared statements、UUID idempotency、D1 batch 建立報名與三種 integration jobs。
+- `GET /api/admin/applications`：分頁、CRM status、service type 與關鍵字篩選。
+- `GET /api/admin/applications/:id`：取得單筆詳情。
+- `PATCH /api/admin/applications/:id`：限定更新 CRM status、分派顧問、內部備註、ISIC status 與備註。
+- 管理 API 使用 Bearer `ADMIN_API_TOKEN`，以 SHA-256 與 timing-safe comparison 驗證。
+
+驗證結果：
+- `npx tsc --noEmit`：pass。
+- `npm run lint`：0 errors；仍有專案原有的 `<img>`、unused import 與 generated type warning。
+- `npm run build:vinext`：build complete；仍有已知 Vite config、KV prerender cache、image optimizer prerender warning，Windows process 結束時有 libuv assertion。
+- 本地 D1 integration test：新增回 201、同 idempotency key 回 200 duplicate、admin list/detail/PATCH 皆回 200，PATCH 後 `crm_status=contacted`。
+- 測試資料只存於已被 Git 忽略的 `.wrangler/` local D1。
+
+DataGrip：
+- 已新增 `docs/D1-DATAGRIP.md`。
+- DataGrip 不能透過 JDBC/TCP 直接連 production D1，因 D1 不提供 host / port / JDBC URL。
+- 開發時可用 DataGrip SQLite data source 開啟 `.wrangler/state/v3/d1/miniflare-D1DatabaseObject/*.sqlite`。
+- production 可透過 Wrangler 匯出 SQL，匯入本地 SQLite 後由 DataGrip 檢視；這是 snapshot，不是即時連線。
+
+尚未完成／不可部署：
+- `wrangler.jsonc` 的 D1 database ID 仍是 placeholder，尚未建立 production D1。
+- production `ADMIN_API_TOKEN` 尚未建立；不可把測試 token 使用於 production。
+- Turnstile / rate limit 尚未加入，公開 API 不可在無機器人防護下切 production route。
+- Queue consumer、Gmail API、Notion API 與 WordPress 管理外掛尚未實作。
+
+下一步：
+1. 在 Cloudflare 建立 development / production D1，寫回真實 database ID。
+2. 建立 production `ADMIN_API_TOKEN` Cloudflare Secret。
+3. 加入 Turnstile 與公開 endpoint rate limiting。
+4. 在 development D1 套用 migration，部署 workers.dev 後重做 API E2E。
+5. 開發 Queue + Gmail + Notion，最後開發 WordPress 管理外掛。
+
+
+==================================================
+35. Production D1 建立、workers.dev 部署與 E2E（2026-08-25）
+==================================================
+
+最新狀態：
+- Production D1：`lilai-applications-production`。
+- D1 database ID：`d7b4209c-fce2-4f0d-9b18-3f19c183b430`。
+- D1 region：APAC；本次查詢由 HKG colo primary 服務。
+- Worker：`site-creator-vinext-starter`。
+- workers.dev URL：https://site-creator-vinext-starter.lilaiireland.workers.dev
+- API URL：https://site-creator-vinext-starter.lilaiireland.workers.dev/api/applications
+- 新 Worker Version ID：`d2e4482a-830f-4c90-a783-f472135ac22b`，已佈署 100% workers.dev traffic。
+- Rollback baseline：`7e902980-5f41-4d30-883b-db62fd3b509d`；原始 QA checkpoint 仍為 `5aa3541a-2cf4-43f7-8f40-73f96c69922f`。
+- Production custom route：未啟用；本次未變更 DNS、Nameserver、WordPress 或 `lilaiireland.com` routing。
+
+完成內容：
+- 在 Cloudflare 建立 production D1，將 Wrangler `DB` binding 由 placeholder 改為真實 production D1。
+- 遠端套用 `0001_create_application_tables.sql`，驗證 `applications` 與 `integration_jobs` 存在。
+- 移除 `vite.config.ts` 額外的 placeholder D1，修正 build 產物出現兩個 `DB` binding 的問題。
+- 以不落地的高熵隨機值建立 production `ADMIN_API_TOKEN` Cloudflare Secret；值未輸出、未寫入 Git 或日誌。
+- 更新 worker types、database npm scripts、README 與 DataGrip 文件。
+
+驗證結果：
+- `npx tsc --noEmit`：pass。
+- `npm run build:vinext`：build complete；仍有已知 Vite native config、KV prerender cache、image optimizer prerender 與 Windows libuv 結束訊息，部署不受阻擋。
+- Worker startup time：36 ms。
+- Production API E2E：`POST /api/applications` 成功，`duplicate=false`。
+- E2E submission ID：`6615a714-6ad4-40c2-8627-709250243ff9`；資料為明確標示的非真實測試資料，保留作為上線驗證記錄。
+- 遠端 D1 查詢確認 application 為 `service_type=direct_application`、`crm_status=new`。
+- 同一 application 的 `student_email`、`internal_email`、`notion_sync` 三筆 jobs 皆建立且為 `pending`。
+
+未解風險：
+- Email / Notion Queue consumer 尚未實作，因此 integration jobs 不會被消化，也不會實際寄信。
+- Turnstile 與 rate limiting 尚未加入；workers.dev 可作受控測試，不可在此狀態下開啟正式網域廣告流量。
+- DataGrip 無法用 JDBC/TCP 直接連 production D1；只能開啟 Wrangler export 後的本地 SQLite snapshot，不是即時連線。
+- 目前 workers.dev 前端直接寫 production D1；後續應建立獨立 staging D1，避免一般 QA 污染 production data。
+
+下一步：
+1. 以瀏覽器實際完整填寫直接報名與諮詢表單，再從 Cloudflare D1 Console 或 Wrangler 查詢核對。
+2. 加入 Turnstile 與 rate limiting 後才評估 production custom route。
+3. 實作 Queue consumer、Gmail API 與 Notion sync，將 pending jobs 轉成 succeeded / failed / dead_letter。
+4. 建立 staging D1 與測試資料清理流程。
