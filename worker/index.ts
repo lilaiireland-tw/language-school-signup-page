@@ -3,6 +3,7 @@ import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } fr
 import handler from "vinext/server/app-router-entry";
 import { routeApiRequest } from "./router";
 import { errorResponse } from "./shared/http";
+import { enqueueDueIntegrationJobs, handleIntegrationQueue } from "./queue/consumer";
 
 type ImagesOutputFormat = "image/jpeg" | "image/png" | "image/gif" | "image/webp" | "image/avif";
 
@@ -40,6 +41,12 @@ const worker = {
     }
 
     return handler.fetch(request, env, ctx);
+  },
+  async queue(batch: MessageBatch<unknown>, env: Cloudflare.Env): Promise<void> {
+    await handleIntegrationQueue(batch, env);
+  },
+  async scheduled(_controller: ScheduledController, env: Cloudflare.Env): Promise<void> {
+    await enqueueDueIntegrationJobs(env);
   },
 } satisfies ExportedHandler<Cloudflare.Env>;
 

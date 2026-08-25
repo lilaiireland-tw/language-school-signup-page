@@ -25,9 +25,42 @@
       "migrations_dir": "migrations"
     }
   ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "INTEGRATION_QUEUE",
+        "queue": "lilai-application-integrations"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "lilai-application-integrations",
+        "dead_letter_queue": "lilai-application-integrations-dlq",
+        "max_batch_size": 5,
+        "max_batch_timeout": 5,
+        "max_retries": 5,
+        "retry_delay": 60
+      }
+    ]
+  },
+  "triggers": {
+    "crons": [
+      "*/10 * * * *"
+    ]
+  },
+  "vars": {
+    "GMAIL_SENDER_EMAIL": "application@lilaiireland.com",
+    "EMAIL_REPLY_TO": "lilaiireland@gmail.com",
+    "INTERNAL_NOTIFICATION_EMAIL": "lilaiireland@gmail.com",
+    "NOTION_VERSION": "2022-06-28"
+  },
   "secrets": {
     "required": [
-      "ADMIN_API_TOKEN"
+      "ADMIN_API_TOKEN",
+      "GMAIL_SERVICE_ACCOUNT_EMAIL",
+      "GMAIL_PRIVATE_KEY",
+      "NOTION_TOKEN",
+      "NOTION_DATABASE_ID"
     ]
   },
   "observability": {

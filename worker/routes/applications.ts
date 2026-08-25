@@ -6,6 +6,13 @@ export async function handleCreateApplication(request: Request, env: Cloudflare.
   try {
     const input = parseApplicationInput(await readJson(request));
     const result = await submitApplication(env.DB, input, request.headers.get("Idempotency-Key") ?? undefined);
+    if (!result.duplicate) {
+      try {
+        await env.INTEGRATION_QUEUE.send({ applicationId: result.id });
+      } catch (error) {
+        console.error(JSON.stringify({ event: "integration_enqueue_failed", applicationId: result.id, error: error instanceof Error ? error.message : "unknown" }));
+      }
+    }
     return jsonResponse({ ok: true, submissionId: result.id, duplicate: result.duplicate }, result.duplicate ? 200 : 201);
   } catch (error) {
     if (error instanceof HttpError) return errorResponse(error.status, error.code, error.message, error.details);

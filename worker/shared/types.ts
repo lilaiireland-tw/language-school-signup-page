@@ -85,3 +85,25 @@ export interface AdminApplicationPatch {
   isicEligibilityStatus?: IsicEligibilityStatus;
   isicNotes?: string;
 }
+
+export type IntegrationJobType = "student_email" | "internal_email" | "notion_sync";
+export type IntegrationJobStatus = "pending" | "processing" | "succeeded" | "failed" | "dead_letter";
+
+export interface IntegrationJobRow {
+  id: string;
+  application_id: string;
+  job_type: IntegrationJobType;
+  status: IntegrationJobStatus;
+  attempts: number;
+  last_error: string;
+  next_retry_at: string | null;
+  provider_message_id: string | null;
+  notion_page_id: string | null;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+}
+
+export interface IntegrationQueueMessage {
+  applicationId: string;
+}

@@ -1,4 +1,4 @@
-import type { AdminApplicationPatch, ApplicationInput, ApplicationRow } from "../shared/types";
+import type { AdminApplicationPatch, ApplicationInput, ApplicationRow, IntegrationJobRow } from "../shared/types";
 
 const AGREEMENT_VERSION = "2026-08-24";
 
@@ -60,4 +60,60 @@ export async function updateApplication(db: D1Database, id: string, patch: Admin
   values.push(now, id);
   await db.prepare(`UPDATE applications SET ${columns.join(", ")}, updated_at = ?${values.length - 1} WHERE id = ?${values.length}`).bind(...values).run();
   return getApplication(db, id);
+}
+
+export async function getRunnableIntegrationJobs(db: D1Database, applicationId: string, now: string): Promise<IntegrationJobRow[]> {
+  const result = await db.prepare(`SELECT * FROM integration_jobs
+    WHERE application_id = ?1
+      AND status IN ('pending', 'failed')
+      AND (next_retry_at IS NULL OR next_retry_at <= ?2)
+    ORDER BY created_at ASC`).bind(applicationId, now).all<IntegrationJobRow>();
+  return result.results;
+}
+
+export async function claimIntegrationJob(db: D1Database, jobId: string, now: string): Promise<boolean> {
+  const result = await db.prepare(`UPDATE integration_jobs
+    SET status = 'processing', attempts = attempts + 1, updated_at = ?2
+    WHERE id = ?1 AND status IN ('pending', 'failed') AND (next_retry_at IS NULL OR next_retry_at <= ?2)`)
+    .bind(jobId, now).run();
+  return result.meta.changes === 1;
+}
+
+export async function completeIntegrationJob(
+  db: D1Database,
+  jobId: string,
+  now: string,
+  result: { providerMessageId?: string; notionPageId?: string },
+): Promise<void> {
+  await db.prepare(`UPDATE integration_jobs SET status = 'succeeded', last_error = '', next_retry_at = NULL,
+    provider_message_id = COALESCE(?2, provider_message_id), notion_page_id = COALESCE(?3, notion_page_id),
+    updated_at = ?4, completed_at = ?4 WHERE id = ?1`)
+    .bind(jobId, result.providerMessageId ?? null, result.notionPageId ?? null, now).run();
+}
+
+export async function failIntegrationJob(
+  db: D1Database,
+  jobId: string,
+  now: string,
+  error: string,
+  retryAt: string | null,
+  deadLetter: boolean,
+): Promise<void> {
+  await db.prepare(`UPDATE integration_jobs SET status = ?2, last_error = ?3, next_retry_at = ?4,
+    updated_at = ?5, completed_at = ?6 WHERE id = ?1`)
+    .bind(jobId, deadLetter ? "dead_letter" : "failed", error.slice(0, 1000), retryAt, now, deadLetter ? now : null).run();
+}
+
+export async function listDueIntegrationApplicationIds(db: D1Database, now: string, limit = 100): Promise<string[]> {
+  const result = await db.prepare(`SELECT DISTINCT application_id FROM integration_jobs
+    WHERE status IN ('pending', 'failed') AND (next_retry_at IS NULL OR next_retry_at <= ?1)
+    ORDER BY created_at ASC LIMIT ?2`).bind(now, limit).all<{ application_id: string }>();
+  return result.results.map((row) => row.application_id);
+}
+
+export async function recoverStaleIntegrationJobs(db: D1Database, staleBefore: string, now: string): Promise<number> {
+  const result = await db.prepare(`UPDATE integration_jobs
+    SET status = 'failed', last_error = 'Recovered stale processing lease', next_retry_at = ?2, updated_at = ?2
+    WHERE status = 'processing' AND updated_at < ?1`).bind(staleBefore, now).run();
+  return result.meta.changes;
 }
