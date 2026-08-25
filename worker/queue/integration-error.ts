@@ -1,7 +1,10 @@
 export class IntegrationError extends Error {
-  constructor(message: string, readonly retryable: boolean) {
+  readonly retryable: boolean;
+
+  constructor(message: string, retryable: boolean) {
     super(message);
     this.name = "IntegrationError";
+    this.retryable = retryable;
   }
 }
 

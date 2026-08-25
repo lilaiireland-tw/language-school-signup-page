@@ -36,6 +36,16 @@ npm test
 npm run build
 ```
 
+## 一次性取得 Gmail refresh token
+
+先在 Google Cloud 建立 **Desktop app** OAuth client、啟用 Gmail API，並下載 client JSON 到專案外或已忽略的位置。接著執行：
+
+```powershell
+npm.cmd run gmail:authorize -- "C:\path\to\client_secret.json"
+```
+
+腳本只要求 `https://www.googleapis.com/auth/gmail.send`，使用 PKCE、`access_type=offline`、`prompt=consent` 與本機 loopback callback。它不會寫入 refresh token 或 access token；refresh token 只在終端顯示一次，請立即手動存入 Cloudflare Secret `GMAIL_REFRESH_TOKEN`。不要把 client JSON 或 token 提交 Git。
+
 ## 主要位置
 
 - `app/page.tsx`：頁面內容、區塊、互動與表單畫面
@@ -46,8 +56,9 @@ npm run build
 - `app/lib/analytics.ts`：推送至 `window.dataLayer` 的追蹤事件
 - `public/lilai-assets/`：品牌、學校與開局支援圖片
 - `tests/rendered-html.test.mjs`：關鍵內容回歸檢查
+- `scripts/generate-gmail-refresh-token.mjs`：一次性 Gmail Desktop OAuth owner authorization 工具
 - `worker/index.ts`：Cloudflare Worker 入口
 
 ## 重要提醒
 
-目前 workers.dev 表單會呼叫 Worker API 並寫入 production D1。Email Queue consumer 與 Notion CRM 同步尚未實作，因此寫入的 integration jobs 會停在 `pending`。尚未設定 `lilaiireland.com` production route。
+目前 workers.dev 表單會呼叫 Worker API 並寫入 production D1。Email Queue consumer 與 Notion CRM 程式已完成但尚未部署；在 Gmail／Notion secrets 與 E2E 驗證完成前，integration jobs 會停在 `pending`。尚未設定 `lilaiireland.com` production route。

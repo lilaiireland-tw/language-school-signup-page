@@ -20,8 +20,8 @@
 - Production custom route：**未啟用**
 - 正式網站仍由 WordPress 提供；Worker 只在 workers.dev 測試。
 - D1 報名後端已完成並部署；`POST /api/applications` 已通過 production D1 E2E。
-- Git：`feat/integration-jobs-consumer` 已通過本機 gate 並 fast-forward 合併到 `main`；目前 `main` 為整合 consumer 的已提交基準。
-- Integration consumer 程式已合併，尚未部署。Cloudflare CLI 登入已恢復，正式 Queue／DLQ 已建立；Gmail／Notion secrets 與整合 E2E 尚未設定／驗證，因此暫停 workers.dev 部署，避免 production jobs 被錯誤送入 `dead_letter`。
+- Git：`feat/gmail-oauth-refresh-token` 已通過本機 gate，並同步合併到 `main`；目前 `main` 包含 integration consumer、Gmail OAuth refresh-token migration 與 UTF-8 寄件人名稱修正。
+- Integration consumer 程式已合併到 `main`，尚未部署。正式 Queue／DLQ 已建立，Gmail 四項 secrets 已設定且單筆 production D1 `internal_email` smoke test 成功；Notion secrets 尚未設定，因此仍暫停正式 Queue consumer／Cron 部署，避免其餘 pending jobs 被錯誤送入 `dead_letter`。
 - `ADMIN_API_TOKEN` 已由使用者在 Cloudflare Dashboard 安全輪替；Secret 值未經 Codex、Terminal、Git 或日誌。
 
 ## 不可變更的邊界
@@ -66,7 +66,9 @@
 - Queue 採 at-least-once delivery；D1 claim 保護重複處理。
 - 暫時錯誤 exponential backoff；永久錯誤或第五次失敗標為 `dead_letter`。
 - Cron 每十分鐘補掃描漏送／到期 job，並回收超過十五分鐘的 stale `processing`。
-- Email 使用 Google Workspace service account + domain-wide delegation 呼叫 Gmail API，最小 scope 為 `gmail.send`。
+- Email 使用 `lilaiireland@gmail.com` 的 Gmail API OAuth 2.0 offline refresh token；不使用 Google Workspace、service account、impersonation 或 domain-wide delegation。
+- Gmail OAuth scope 僅允許 `https://www.googleapis.com/auth/gmail.send`；refresh token 透過一次性的帳號擁有者授權流程取得。
+- `GMAIL_CLIENT_ID`、`GMAIL_CLIENT_SECRET`、`GMAIL_REFRESH_TOKEN`、`GMAIL_SENDER_EMAIL` 僅存在 Cloudflare Secrets；Worker 每次 Queue 處理時以 refresh token 換取短效 access token，不將 token 寫入 D1、瀏覽器、API response 或 log。
 - Notion 以 Submission ID 查重後建立 CRM page，成功後保存 page ID。
 
 ## 部署基準
@@ -102,10 +104,16 @@
 - Integration consumer 功能分支已完成程式：
   - 新申請 enqueue
   - Queue consumer
-  - Gmail API OAuth JWT 與 HTML／plain-text 郵件
+  - Gmail API OAuth 2.0 refresh-token grant 與 HTML／plain-text 郵件
   - Notion Submission ID 去重與 page 建立
   - D1 claim、成功／失敗／dead-letter 狀態、provider/page ID
   - retry、補掃描與 stale processing recovery
+- Gmail authentication migration 已在 `feat/gmail-oauth-refresh-token` 完成程式與 mock tests：
+  - 移除 service-account JWT、RSA private-key signing、impersonation 與 domain-wide delegation。
+  - 以 refresh-token grant 向 Google token endpoint 取得短效 access token。
+  - Gmail send 改用 `users/me/messages/send`，provider message ID 仍寫回既有 integration job。
+  - `invalid_client`、`invalid_grant`、`unauthorized_client` 與 Gmail 401／403 視為永久錯誤；network、429、5xx 沿用既有 retry/backoff。
+  - 新增一次性 Desktop OAuth owner authorization 腳本：隨機 loopback port、PKCE S256、state 驗證、僅 `gmail.send`、`access_type=offline`、`prompt=consent`；refresh token 只印至 terminal，不寫磁碟，access token 不輸出。
 
 ## 最新驗證
 
@@ -118,6 +126,14 @@
 - `node --test tests/rendered-html.test.mjs`：2 tests passed。
 - `wrangler deploy --dry-run --config dist/server/wrangler.json`：成功，Queue、D1、Images、Assets 與 vars bindings 均納入產物。
 - `wrangler check startup --config dist/server/wrangler.json`：成功；本機 profile active CPU 約 43.8 ms，產生的暫時 profile 已移除、不提交 Git。
+- `feat/gmail-oauth-refresh-token`：`npx tsc --noEmit` 成功；`npm run lint` 0 errors、20 個既有 warnings，沒有新增 lint errors。
+- `npm run test:gmail`：9 tests passed，涵蓋 token request/response、永久與暫時 OAuth 錯誤、Gmail success、401/403、429/5xx、base64url、UTF-8 寄件人顯示名稱與既有 exponential retry delay。
+- Gmail production-secret smoke test：使用未切換正式流量、無 Queue／Cron 的 Worker version preview，對既有 `internal_email` job `8b6c7c4a-fdcf-4b5b-bf8a-9e3aa87cd8c3` 完成 OAuth refresh-token exchange 與 Gmail API 寄送；D1 狀態為 `succeeded`、attempts `1`、provider message ID `1a03941fb9c1340e`、`last_error` 空白。測試預覽 Version ID：`5fd011bc-9417-4ac6-893c-1b5d610b92c9`；未分配正式 traffic，rollback baseline 不變。
+- Gmail smoke test 實收確認成功；修正 `From` 寄件人顯示名稱亂碼，將「哩來愛爾蘭」改為 RFC 2047 UTF-8 Base64 encoded-word，並新增 MIME header regression test。此修正尚未部署，正式 Worker／rollback baseline 不變。
+- 合併前完整 gate：Gmail tests 9/9、build complete、rendered HTML tests 2/2、TypeScript 成功、lint 0 errors／20 個既有 warnings、Wrangler deploy dry-run 成功、`git diff --check` 成功。Windows build 結束時仍出現既知 libuv assertion，因此 HTML tests 另行執行並通過。
+- OAuth migration 後 `npm run build:vinext` Build complete、rendered HTML 2 tests passed、Wrangler deploy dry-run 成功。
+- 已確認 build 產物只要求 `GMAIL_CLIENT_ID`、`GMAIL_CLIENT_SECRET`、`GMAIL_REFRESH_TOKEN`、`GMAIL_SENDER_EMAIL`、`NOTION_TOKEN`、`NOTION_DATABASE_ID`；舊 service-account secrets 不再存在。
+- `node --check scripts/generate-gmail-refresh-token.mjs`、變更範圍 ESLint、TypeScript 與 Gmail tests：成功；正式 credentials 已透過隔離 smoke test 驗證，未輸出或記錄任何 token。
 - 本機 Vinext Worker 使用 `dist/server/wrangler.json` 時，D1 persistence 位於 `dist/server/.wrangler/state`，與根設定預設的 `.wrangler/state` 不同；已對實際 runtime state 套用 `0001_create_application_tables.sql`，並確認 `applications`、`integration_jobs` 與 `d1_migrations` 存在。
 - 本機表單 E2E：`POST /api/applications` 回傳 201，application 與三種 integration jobs 均成功寫入 runtime D1；Queue 已消費訊息，但因本機 Gmail／Notion 測試憑證無效，三種 job 依設計進入 `dead_letter`，尚未驗證外部服務成功路徑。
 - 已確認 build 產生的 `dist/server/wrangler.json` 包含 Queue producer、consumer、DLQ、Cron、D1 與所需變數。
@@ -133,15 +149,14 @@
 
 - Cloudflare CLI OAuth session 已重新登入成功。
 - 正式 Queue `lilai-application-integrations` 與 DLQ `lilai-application-integrations-dlq` 已建立；consumer 尚未部署，因此目前 producers／consumers 仍為 0。
-- 尚需由 Google Workspace Super Admin：
-  - 建立／確認專用寄件 mailbox `application@lilaiireland.com`。
-  - 對 service account 啟用 domain-wide delegation。
-  - 僅授權 `https://www.googleapis.com/auth/gmail.send`。
-- 尚需準備 Cloudflare Secrets：
-  - `GMAIL_SERVICE_ACCOUNT_EMAIL`
-  - `GMAIL_PRIVATE_KEY`
+- Cloudflare deployment secrets gate：
+  - `GMAIL_CLIENT_ID`
+  - `GMAIL_CLIENT_SECRET`
+  - `GMAIL_REFRESH_TOKEN`
+  - `GMAIL_SENDER_EMAIL`（必須為 `lilaiireland@gmail.com`）
   - `NOTION_TOKEN`
   - `NOTION_DATABASE_ID`
+- Gmail 四項 secrets 已存在於 Cloudflare，且 `lilaiireland@gmail.com` 的 OAuth refresh token 已通過實際 Gmail API 寄送驗證；目前只缺 `NOTION_TOKEN` 與 `NOTION_DATABASE_ID`。OAuth credential JSON 與 token 不寫入 Git 或日誌。
 - Notion database 必須分享給 integration，且 properties 至少精確包含：`Name`、`Submission ID`、`Service Type`、`Email`、`Phone`、`Submitted At`。
 - 舊 production jobs 在 consumer 部署與 Cron 啟用前仍會保持 `pending`。
 - workers.dev 目前直接寫 production D1；應建立 staging D1，避免 QA 污染正式資料。
@@ -150,8 +165,8 @@
 ## 下一步計畫
 
 1. 由使用者在本機以新 `ADMIN_API_TOKEN` 驗證 Admin API；不得將 token 貼入 Codex、命令歷史或 Git。
-2. 由安全互動方式設定 Gmail 與 Notion secrets，不在命令列參數、Git 或日誌暴露值。
-3. 確認 Notion property schema 與 Gmail domain-wide delegation。
+2. 由安全互動方式設定缺少的 Notion secrets，不在命令列參數、Git 或日誌暴露值。
+3. 確認 Notion property schema；Gmail OAuth offline authorization 與單筆 production-secret send smoke test 已完成（僅 `gmail.send`）。
 4. Dry run、部署 workers.dev，記錄新 Version ID 與 rollback baseline。
 5. 由 Cron enqueue 既有 pending jobs；驗證三種 job 轉為 `succeeded`，並核對兩封 Email 與 Notion page。
 6. 若有永久設定錯誤，修正後提供受保護的人工重送流程，不直接改寫成功紀錄。

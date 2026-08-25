@@ -9,14 +9,11 @@ import {
 } from "../repositories/application-repository";
 import type { IntegrationJobRow, IntegrationQueueMessage } from "../shared/types";
 import { IntegrationError, sanitizedError } from "./integration-error";
-import { sendApplicationEmail } from "./gmail";
+import { sendApplicationEmail } from "../gmail/send";
 import { syncApplicationToNotion } from "./notion";
+import { retryDelaySeconds } from "./retry";
 
 const MAX_ATTEMPTS = 5;
-
-function retryDelaySeconds(attempts: number): number {
-  return Math.min(3600, 60 * 2 ** Math.max(0, attempts - 1));
-}
 
 function validMessage(value: unknown): value is IntegrationQueueMessage {
   return typeof value === "object" && value !== null && "applicationId" in value
