@@ -21,7 +21,8 @@
 - 正式網站仍由 WordPress 提供；Worker 只在 workers.dev 測試。
 - D1 報名後端已完成並部署；`POST /api/applications` 已通過 production D1 E2E。
 - Git：已將完成的 `feat/d1-applications-backend` fast-forward 合併到 `main`；目前開發分支為 `feat/integration-jobs-consumer`。
-- Integration consumer 程式已在功能分支實作，尚未部署。Cloudflare CLI 登入已過期，正式 Queue、secrets、Gmail 與 Notion E2E 尚未設定／驗證。
+- Integration consumer 程式已在功能分支實作，尚未部署。Cloudflare CLI 登入已恢復，正式 Queue／DLQ 已建立；Gmail／Notion secrets 與整合 E2E 尚未設定／驗證。
+- `ADMIN_API_TOKEN` 已由使用者在 Cloudflare Dashboard 安全輪替；Secret 值未經 Codex、Terminal、Git 或日誌。
 
 ## 不可變更的邊界
 
@@ -70,14 +71,15 @@
 
 ## 部署基準
 
-最近一次部署：2026-08-25
+最近一次部署：2026-08-25（Secret-only deployment）
 
 - 環境：workers.dev，連接 production D1
 - Worker：`site-creator-vinext-starter`
 - URL：https://site-creator-vinext-starter.lilaiireland.workers.dev
 - API：https://site-creator-vinext-starter.lilaiireland.workers.dev/api/applications
-- Version ID：`d2e4482a-830f-4c90-a783-f472135ac22b`
-- Rollback baseline：`7e902980-5f41-4d30-883b-db62fd3b509d`
+- Version ID：`327d3375-465d-4772-88ca-35b16c5cde7f`（`ADMIN_API_TOKEN` 輪替，100% traffic）
+- 前一個程式版本：`d2e4482a-830f-4c90-a783-f472135ac22b`
+- Rollback baseline：`7e902980-5f41-4d30-883b-db62fd3b509d`；若回復舊 version，必須重新確認／輪替 Admin secret
 - 原始 QA checkpoint：`5aa3541a-2cf4-43f7-8f40-73f96c69922f`
 - Production D1：`lilai-applications-production`
 - D1 database ID：`d7b4209c-fce2-4f0d-9b18-3f19c183b430`
@@ -110,19 +112,27 @@
 2026-08-25，`feat/integration-jobs-consumer`：
 
 - `wrangler types`：成功，Queue 與 secrets bindings 已生成。
-- `npx tsc --noEmit`：成功。
-- `eslint worker`：成功。
-- `npm run build:vinext`：Build complete。
+- `npx tsc --noEmit`：成功（本次重新驗證）。
+- `npm run lint`：0 errors、20 warnings；主要為既有 `<img>` 效能提示與未使用 import。
+- `npm run build:vinext`：Build complete（本次重新驗證）。
+- `node --test tests/rendered-html.test.mjs`：2 tests passed。
+- `wrangler deploy --dry-run --config dist/server/wrangler.json`：成功，Queue、D1、Images、Assets 與 vars bindings 均納入產物。
+- `wrangler check startup --config dist/server/wrangler.json`：成功；本機 profile active CPU 約 43.8 ms，產生的暫時 profile 已移除、不提交 Git。
+- 本機 Vinext Worker 使用 `dist/server/wrangler.json` 時，D1 persistence 位於 `dist/server/.wrangler/state`，與根設定預設的 `.wrangler/state` 不同；已對實際 runtime state 套用 `0001_create_application_tables.sql`，並確認 `applications`、`integration_jobs` 與 `d1_migrations` 存在。
+- 本機表單 E2E：`POST /api/applications` 回傳 201，application 與三種 integration jobs 均成功寫入 runtime D1；Queue 已消費訊息，但因本機 Gmail／Notion 測試憑證無效，三種 job 依設計進入 `dead_letter`，尚未驗證外部服務成功路徑。
 - 已確認 build 產生的 `dist/server/wrangler.json` 包含 Queue producer、consumer、DLQ、Cron、D1 與所需變數。
 - 已知非 blocker：
   - Vite native config import warning。
   - prerender 階段 KV cache／image optimizer binding fallback。
   - Windows 結束時 libuv assertion。
+  - 上述 libuv assertion 會讓 `npm test` 在 build 完成後提前以 exit 1 結束；獨立執行 rendered HTML tests 已全部通過，CI／非 Windows 環境仍需再確認整體 test script。
   - 本地缺少正式 secrets，因此 build 顯示 missing secrets warning。
+  - Windows sandbox／權限設定可能讓 Wrangler 無法寫入使用者目錄的 debug log（`EPERM`）；目前 CLI 操作本身仍可成功。
 
 ## 未解風險與阻塞
 
-- Cloudflare CLI session 已過期；尚不能建立 Queue／DLQ、設定 secrets 或部署新版。
+- Cloudflare CLI OAuth session 已重新登入成功。
+- 正式 Queue `lilai-application-integrations` 與 DLQ `lilai-application-integrations-dlq` 已建立；consumer 尚未部署，因此目前 producers／consumers 仍為 0。
 - 尚需由 Google Workspace Super Admin：
   - 建立／確認專用寄件 mailbox `application@lilaiireland.com`。
   - 對 service account 啟用 domain-wide delegation。
@@ -139,18 +149,15 @@
 
 ## 下一步計畫
 
-1. 重新完成 Wrangler 登入，只做 Queue／secrets／部署範圍內操作。
-2. 建立：
-   - `lilai-application-integrations`
-   - `lilai-application-integrations-dlq`
-3. 由安全互動方式設定 Gmail 與 Notion secrets，不在命令列參數、Git 或日誌暴露值。
-4. 確認 Notion property schema 與 Gmail domain-wide delegation。
-5. Dry run、部署 workers.dev，記錄新 Version ID 與 rollback baseline。
-6. 由 Cron enqueue 既有 pending jobs；驗證三種 job 轉為 `succeeded`，並核對兩封 Email 與 Notion page。
-7. 若有永久設定錯誤，修正後提供受保護的人工重送流程，不直接改寫成功紀錄。
-8. 建立 staging D1，再加入 Turnstile 與 rate limiting。
-9. 完成 responsive／assets／console／network／form／metadata QA 與 WordPress SEO baseline。
-10. 經明確驗收後，才評估單一路徑 production route。
+1. 由使用者在本機以新 `ADMIN_API_TOKEN` 驗證 Admin API；不得將 token 貼入 Codex、命令歷史或 Git。
+2. 由安全互動方式設定 Gmail 與 Notion secrets，不在命令列參數、Git 或日誌暴露值。
+3. 確認 Notion property schema 與 Gmail domain-wide delegation。
+4. Dry run、部署 workers.dev，記錄新 Version ID 與 rollback baseline。
+5. 由 Cron enqueue 既有 pending jobs；驗證三種 job 轉為 `succeeded`，並核對兩封 Email 與 Notion page。
+6. 若有永久設定錯誤，修正後提供受保護的人工重送流程，不直接改寫成功紀錄。
+7. 建立 staging D1，再加入 Turnstile 與 rate limiting。
+8. 完成 responsive／assets／console／network／form／metadata QA 與 WordPress SEO baseline。
+9. 經明確驗收後，才評估單一路徑 production route。
 
 ## Git 工作方式
 
