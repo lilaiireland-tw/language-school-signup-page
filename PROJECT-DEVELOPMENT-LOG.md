@@ -12,7 +12,7 @@
 
 ## 最新狀態
 
-最後更新：2026-08-25
+最後更新：2026-08-26
 
 - 正式網站：https://lilaiireland.com
 - Worker 測試網址：https://site-creator-vinext-starter.lilaiireland.workers.dev
@@ -21,7 +21,7 @@
 - 正式網站仍由 WordPress 提供；Worker 只在 workers.dev 測試。
 - D1 報名後端已完成並部署；`POST /api/applications` 已通過 production D1 E2E。
 - Git：`feat/gmail-oauth-refresh-token` 已通過本機 gate，並同步合併到 `main`；目前 `main` 包含 integration consumer、Gmail OAuth refresh-token migration 與 UTF-8 寄件人名稱修正。
-- Integration consumer 程式已合併到 `main`，尚未部署。正式 Queue／DLQ 已建立，Gmail 四項 secrets 已設定且單筆 production D1 `internal_email` smoke test 成功；Notion secrets 尚未設定，因此仍暫停正式 Queue consumer／Cron 部署，避免其餘 pending jobs 被錯誤送入 `dead_letter`。
+- Integration consumer 已部署至 workers.dev；正式 Queue producer／consumer 與 Cron 已啟用。Gmail OAuth 寄信、Notion 同步及既有 pending jobs 均已在線上成功完成。
 - `ADMIN_API_TOKEN` 已由使用者在 Cloudflare Dashboard 安全輪替；Secret 值未經 Codex、Terminal、Git 或日誌。
 
 ## 不可變更的邊界
@@ -73,15 +73,15 @@
 
 ## 部署基準
 
-最近一次部署：2026-08-25（Secret-only deployment）
+最近一次部署：2026-08-26（Integration consumer production deployment）
 
 - 環境：workers.dev，連接 production D1
 - Worker：`site-creator-vinext-starter`
 - URL：https://site-creator-vinext-starter.lilaiireland.workers.dev
 - API：https://site-creator-vinext-starter.lilaiireland.workers.dev/api/applications
-- Version ID：`327d3375-465d-4772-88ca-35b16c5cde7f`（`ADMIN_API_TOKEN` 輪替，100% traffic）
-- 前一個程式版本：`d2e4482a-830f-4c90-a783-f472135ac22b`
-- Rollback baseline：`7e902980-5f41-4d30-883b-db62fd3b509d`；若回復舊 version，必須重新確認／輪替 Admin secret
+- Version ID：`a03e7505-f83d-4dae-b052-481bf28d4d8c`（100% traffic）
+- Rollback baseline：`327d3375-465d-4772-88ca-35b16c5cde7f`
+- 部署前 D1 備份：`backups/pre-integration-deploy-2026-08-26.sql`（僅存本機且已被 Git ignore）
 - 原始 QA checkpoint：`5aa3541a-2cf4-43f7-8f40-73f96c69922f`
 - Production D1：`lilai-applications-production`
 - D1 database ID：`d7b4209c-fce2-4f0d-9b18-3f19c183b430`
@@ -117,7 +117,7 @@
 
 ## 最新驗證
 
-2026-08-25，`feat/integration-jobs-consumer`：
+2026-08-26，`main`：
 
 - `wrangler types`：成功，Queue 與 secrets bindings 已生成。
 - `npx tsc --noEmit`：成功（本次重新驗證）。
@@ -129,8 +129,16 @@
 - `feat/gmail-oauth-refresh-token`：`npx tsc --noEmit` 成功；`npm run lint` 0 errors、20 個既有 warnings，沒有新增 lint errors。
 - `npm run test:gmail`：9 tests passed，涵蓋 token request/response、永久與暫時 OAuth 錯誤、Gmail success、401/403、429/5xx、base64url、UTF-8 寄件人顯示名稱與既有 exponential retry delay。
 - Gmail production-secret smoke test：使用未切換正式流量、無 Queue／Cron 的 Worker version preview，對既有 `internal_email` job `8b6c7c4a-fdcf-4b5b-bf8a-9e3aa87cd8c3` 完成 OAuth refresh-token exchange 與 Gmail API 寄送；D1 狀態為 `succeeded`、attempts `1`、provider message ID `1a03941fb9c1340e`、`last_error` 空白。測試預覽 Version ID：`5fd011bc-9417-4ac6-893c-1b5d610b92c9`；未分配正式 traffic，rollback baseline 不變。
-- Gmail smoke test 實收確認成功；修正 `From` 寄件人顯示名稱亂碼，將「哩來愛爾蘭」改為 RFC 2047 UTF-8 Base64 encoded-word，並新增 MIME header regression test。此修正尚未部署，正式 Worker／rollback baseline 不變。
+- Gmail smoke test 實收確認成功；修正 `From` 寄件人顯示名稱亂碼，將「哩來愛爾蘭」改為 RFC 2047 UTF-8 Base64 encoded-word，並新增 MIME header regression test；此修正已包含於最新部署。
 - 合併前完整 gate：Gmail tests 9/9、build complete、rendered HTML tests 2/2、TypeScript 成功、lint 0 errors／20 個既有 warnings、Wrangler deploy dry-run 成功、`git diff --check` 成功。Windows build 結束時仍出現既知 libuv assertion，因此 HTML tests 另行執行並通過。
+- 2026-08-26 `wrangler secret list` 只讀確認：`ADMIN_API_TOKEN`、四項 Gmail secrets、`NOTION_TOKEN`、`NOTION_DATABASE_ID` 均存在；另有非 deployment gate 必要的 `INTERNAL_NOTIFICATION_EMAIL` secret。此檢查只驗證名稱存在，不讀取值，也尚未驗證 Notion API 權限或 database schema。
+- 2026-08-26 Notion 唯讀 production-secret smoke test：透過未分配正式 traffic、無 D1／Queue／Cron 的 Worker version preview 呼叫現行 `Notion-Version: 2022-06-28` retrieve database 與 query database API；token、database ID、integration read/query 權限均成功，未建立或修改 CRM page。`Name` 為 `title`、`Email` 為 `email`；尚缺 `Submission ID` (`rich_text`)、`Service Type` (`select`)、`Phone` (`phone_number`)、`Submitted At` (`date`)。Preview Version ID：`49f613c6-6210-4469-b844-b3951cc2f91d`，未部署正式 traffic，rollback baseline 不變。
+- 2026-08-26 Notion schema recheck：相同唯讀 preview 再次 retrieve/query 成功，`schemaReady: true`；`Name` (`title`)、`Submission ID` (`rich_text`)、`Service Type` (`select`)、`Email` (`email`)、`Phone` (`phone_number`)、`Submitted At` (`date`) 六項全部符合。仍未建立或修改 CRM page，Insert content 權限尚待寫入 smoke test。
+- 2026-08-26 Notion production-secret write smoke test：透過無 D1／Queue／Cron、未分配正式 traffic 的 preview，直接執行 production `syncApplicationToNotion()`；以非真實資料成功建立測試 page，第二次相同 `Submission ID` 回傳同一 page ID（冪等通過），最後成功 archive 清理。Preview Version ID：`675ba2a6-9383-4d46-9dd0-31d51289d679`；未部署正式 traffic，rollback baseline 不變。
+- 2026-08-26 完整 gate：Gmail tests 9/9、build complete、rendered HTML tests 2/2、TypeScript 成功、lint 0 errors／20 個既有 warnings、Wrangler deploy dry-run 成功。Windows build 結束仍有既知 libuv assertion，但產物與獨立 HTML tests 均成功。
+- 2026-08-26 workers.dev 部署成功：Version ID `a03e7505-f83d-4dae-b052-481bf28d4d8c` 接管 100% traffic；首頁 HTTP 200，Queue 為 1 producer／1 consumer。部署後 production D1 六筆 integration jobs 全部成功：`internal_email` 2、`student_email` 2、`notion_sync` 2，均為 `succeeded`。
+- `npm run deploy:vinext` 因 `--experimental-warm-cdn-cache` 未設定 `VINEXT_KV_CACHE` 而在上傳前停止；本次改用 `wrangler deploy --config dist/server/wrangler.json` 成功部署。後續應修正 deploy script 或正式配置 KV binding，避免操作流程分歧。
+- 部署前隔離性核對：production D1 為 `internal_email` pending 1／succeeded 1、`student_email` pending 2、`notion_sync` pending 2；正式 Queue／DLQ producers 與 consumers 為 0；當時 Worker 100% traffic 為 `327d3375-465d-4772-88ca-35b16c5cde7f`。部署後狀態見上方最新驗證。
 - OAuth migration 後 `npm run build:vinext` Build complete、rendered HTML 2 tests passed、Wrangler deploy dry-run 成功。
 - 已確認 build 產物只要求 `GMAIL_CLIENT_ID`、`GMAIL_CLIENT_SECRET`、`GMAIL_REFRESH_TOKEN`、`GMAIL_SENDER_EMAIL`、`NOTION_TOKEN`、`NOTION_DATABASE_ID`；舊 service-account secrets 不再存在。
 - `node --check scripts/generate-gmail-refresh-token.mjs`、變更範圍 ESLint、TypeScript 與 Gmail tests：成功；正式 credentials 已透過隔離 smoke test 驗證，未輸出或記錄任何 token。
@@ -148,7 +156,7 @@
 ## 未解風險與阻塞
 
 - Cloudflare CLI OAuth session 已重新登入成功。
-- 正式 Queue `lilai-application-integrations` 與 DLQ `lilai-application-integrations-dlq` 已建立；consumer 尚未部署，因此目前 producers／consumers 仍為 0。
+- 正式 Queue `lilai-application-integrations` 與 DLQ `lilai-application-integrations-dlq` 已建立；主 Queue 已有 1 producer／1 consumer，consumer 與 Cron 正常運作。
 - Cloudflare deployment secrets gate：
   - `GMAIL_CLIENT_ID`
   - `GMAIL_CLIENT_SECRET`
@@ -156,21 +164,21 @@
   - `GMAIL_SENDER_EMAIL`（必須為 `lilaiireland@gmail.com`）
   - `NOTION_TOKEN`
   - `NOTION_DATABASE_ID`
-- Gmail 四項 secrets 已存在於 Cloudflare，且 `lilaiireland@gmail.com` 的 OAuth refresh token 已通過實際 Gmail API 寄送驗證；目前只缺 `NOTION_TOKEN` 與 `NOTION_DATABASE_ID`。OAuth credential JSON 與 token 不寫入 Git 或日誌。
-- Notion database 必須分享給 integration，且 properties 至少精確包含：`Name`、`Submission ID`、`Service Type`、`Email`、`Phone`、`Submitted At`。
-- 舊 production jobs 在 consumer 部署與 Cron 啟用前仍會保持 `pending`。
+- Gmail 四項 secrets、`NOTION_TOKEN` 與 `NOTION_DATABASE_ID` 均已存在於 Cloudflare；Gmail refresh token 已通過實際寄送，Notion token、database ID 與 read/query 權限亦已通過唯讀 smoke test。OAuth credential JSON 與 token 不寫入 Git 或日誌。
+- Notion database 的 read/query、六個必要 properties、Insert/Update content 權限、production payload、Submission ID 冪等與 archive 清理均已通過隔離 smoke test。
+- `deploy:vinext` 目前依賴尚未配置的 `VINEXT_KV_CACHE`；在修正前需使用標準 Wrangler deploy command。
 - workers.dev 目前直接寫 production D1；應建立 staging D1，避免 QA 污染正式資料。
 - Turnstile 與 rate limiting 尚未完成，不可開啟正式廣告流量或 production route。
 
 ## 下一步計畫
 
 1. 由使用者在本機以新 `ADMIN_API_TOKEN` 驗證 Admin API；不得將 token 貼入 Codex、命令歷史或 Git。
-2. 由安全互動方式設定缺少的 Notion secrets，不在命令列參數、Git 或日誌暴露值。
-3. 確認 Notion property schema；Gmail OAuth offline authorization 與單筆 production-secret send smoke test 已完成（僅 `gmail.send`）。
-4. Dry run、部署 workers.dev，記錄新 Version ID 與 rollback baseline。
-5. 由 Cron enqueue 既有 pending jobs；驗證三種 job 轉為 `succeeded`，並核對兩封 Email 與 Notion page。
+2. Notion 隔離寫入、冪等與清理 smoke test 已完成。
+3. Gmail OAuth offline authorization、production-secret send smoke test，以及 Notion read/query/schema/write 驗證均已完成。
+4. workers.dev 部署、Version ID／rollback baseline 記錄與既有 pending jobs 消化均已完成。
+5. 執行一筆全新的受控 production 表單 E2E，核對使用者信、內部信、Notion CRM page 與 D1 provider IDs。
 6. 若有永久設定錯誤，修正後提供受保護的人工重送流程，不直接改寫成功紀錄。
-7. 建立 staging D1，再加入 Turnstile 與 rate limiting。
+7. 修正 `deploy:vinext` 的 KV cache binding／參數後，建立 staging D1，再加入 Turnstile 與 rate limiting。
 8. 完成 responsive／assets／console／network／form／metadata QA 與 WordPress SEO baseline。
 9. 經明確驗收後，才評估單一路徑 production route。
 

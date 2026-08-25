@@ -34,6 +34,7 @@ yarn-error.log*
 .env*
 mimi.py
 .dev.vars
+docs/Client _all.csv
 
 # vercel
 .vercel
