@@ -20,8 +20,8 @@
 - Production custom route：**未啟用**
 - 正式網站仍由 WordPress 提供；Worker 只在 workers.dev 測試。
 - D1 報名後端已完成並部署；`POST /api/applications` 已通過 production D1 E2E。
-- Git：已將完成的 `feat/d1-applications-backend` fast-forward 合併到 `main`；目前開發分支為 `feat/integration-jobs-consumer`。
-- Integration consumer 程式已在功能分支實作，尚未部署。Cloudflare CLI 登入已恢復，正式 Queue／DLQ 已建立；Gmail／Notion secrets 與整合 E2E 尚未設定／驗證。
+- Git：`feat/integration-jobs-consumer` 已通過本機 gate 並 fast-forward 合併到 `main`；目前 `main` 為整合 consumer 的已提交基準。
+- Integration consumer 程式已合併，尚未部署。Cloudflare CLI 登入已恢復，正式 Queue／DLQ 已建立；Gmail／Notion secrets 與整合 E2E 尚未設定／驗證，因此暫停 workers.dev 部署，避免 production jobs 被錯誤送入 `dead_letter`。
 - `ADMIN_API_TOKEN` 已由使用者在 Cloudflare Dashboard 安全輪替；Secret 值未經 Codex、Terminal、Git 或日誌。
 
 ## 不可變更的邊界
