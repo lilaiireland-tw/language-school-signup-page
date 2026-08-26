@@ -87,11 +87,13 @@ test("server-renders the Lilai Ireland application page", async () => {
 });
 
 test("keeps the form handoff contract explicit", async () => {
-  const [types, api, data, page] = await Promise.all([
+  const [types, api, data, page, styles, revealController] = await Promise.all([
     readFile(new URL("../app/lib/types.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/lib/api.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/lib/data.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/reveal-controller.tsx", import.meta.url), "utf8"),
   ]);
 
   assert.match(types, /serviceType:\s*"direct_application"\s*\|\s*"consultation"/);
@@ -109,6 +111,38 @@ test("keeps the form handoff contract explicit", async () => {
   assert.doesNotMatch(data, /isicEligible/);
   assert.doesNotMatch(data, /leap/i);
   assert.match(page, /consultationAgreementTexts/);
+  assert.match(page, /className="privacy-notice" role="note"/);
+  assert.match(page, /聯絡資訊僅供哩來愛爾蘭就本次報名或諮詢與您聯繫使用/);
+  assert.match(page, /依個人資料保護法妥善處理/);
+  assert.match(page, /getSchoolOptionsForCity/);
+  assert.match(page, /partnerSchools\.filter\(\(school\) => school\.city === city\)/);
+  assert.match(page, /const schoolOptions = getSchoolOptionsForCity\(form\.preferredCity\)/);
+  assert.match(page, /preferredSchool: "", customSchool: ""/);
+  assert.match(page, /請選擇此城市的語校/);
+  assert.match(styles, /\.section-heading\s*\{[^}]*max-width:\s*900px/);
+  assert.match(styles, /\.section-heading h2, \.form-intro h2\s*\{[^}]*text-wrap:\s*balance/);
+  assert.match(styles, /\.section-heading p, \.form-intro p\s*\{[^}]*max-width:\s*720px/);
+  assert.match(page, /<RevealController \/>/);
+  assert.match(page, /const scrollTestimonials = \(direction: -1 \| 1\)/);
+  assert.match(page, /aria-label="查看上一則評論"/);
+  assert.match(page, /aria-label="查看下一則評論"/);
+  assert.match(page, /aria-controls="testimonial-carousel"/);
+  assert.match(page, /pauseUntilRef\.current = performance\.now\(\)/);
+  assert.match(page, /const currentCard = Math\.round\(currentPosition \/ distance\)/);
+  assert.match(page, /row\.scrollTo\(\{ left: \(currentCard \+ direction\) \* distance/);
+  assert.match(page, /currentPosition \+= resetPoint/);
+  assert.match(styles, /\.testimonial-controls button/);
+  assert.match(revealController, /IntersectionObserver/);
+  assert.match(revealController, /threshold:\s*0\.12/);
+  assert.match(revealController, /rootMargin:\s*"0px 0px -12% 0px"/);
+  assert.match(revealController, /observer\.unobserve\(entry\.target\)/);
+  assert.match(revealController, /prefers-reduced-motion:\s*reduce/);
+  assert.match(styles, /data-reveal="up"/);
+  assert.match(styles, /data-reveal="stagger"/);
+  assert.match(styles, /data-reveal="mask"/);
+  assert.match(styles, /data-reveal="timeline"/);
+  assert.match(styles, /@keyframes reveal-line/);
+  assert.doesNotMatch(revealController, /application-form|faq-list|final-actions|hero-actions|site-header/);
   assert.match(page, /lilai-form-intent/);
   assert.match(page, /lilai-accommodation-intent/);
   assert.match(page, /partnerAccommodationInterest:\s*"兩者都想了解"/);

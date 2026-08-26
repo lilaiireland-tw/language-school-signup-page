@@ -12,7 +12,7 @@
 
 ## 最新狀態
 
-最後更新：2026-08-26
+最後更新：2026-08-27
 
 - 正式網站：https://lilaiireland.com
 - Worker 測試網址：https://site-creator-vinext-starter.lilaiireland.workers.dev
@@ -20,7 +20,7 @@
 - Production custom route：**未啟用**
 - 正式網站仍由 WordPress 提供；Worker 只在 workers.dev 測試。
 - D1 報名後端已完成並部署；`POST /api/applications` 已通過 production D1 E2E。
-- Git：`feat/gmail-oauth-refresh-token` 已通過本機 gate，並同步合併到 `main`；目前 `main` 包含 integration consumer、Gmail OAuth refresh-token migration 與 UTF-8 寄件人名稱修正。
+- Git：目前位於 `feat/frontend-review-carousel`，包含本輪前端 UX、表單、動態效果與 Google 評論輪播更新；尚未合併到 `main`。
 - Integration consumer 已部署至 workers.dev；正式 Queue producer／consumer 與 Cron 已啟用。Gmail OAuth 寄信、Notion 同步及既有 pending jobs 均已在線上成功完成。
 - `ADMIN_API_TOKEN` 已由使用者在 Cloudflare Dashboard 安全輪替；Secret 值未經 Codex、Terminal、Git 或日誌。
 
@@ -73,14 +73,14 @@
 
 ## 部署基準
 
-最近一次部署：2026-08-26（Integration consumer production deployment）
+最近一次部署：2026-08-27（Frontend UX and Google review carousel deployment）
 
 - 環境：workers.dev，連接 production D1
 - Worker：`site-creator-vinext-starter`
 - URL：https://site-creator-vinext-starter.lilaiireland.workers.dev
 - API：https://site-creator-vinext-starter.lilaiireland.workers.dev/api/applications
-- Version ID：`a03e7505-f83d-4dae-b052-481bf28d4d8c`（100% traffic）
-- Rollback baseline：`327d3375-465d-4772-88ca-35b16c5cde7f`
+- Version ID：`bb1e505e-d825-4a01-b63a-f66a25000662`（100% traffic）
+- Rollback baseline：`a03e7505-f83d-4dae-b052-481bf28d4d8c`
 - 部署前 D1 備份：`backups/pre-integration-deploy-2026-08-26.sql`（僅存本機且已被 Git ignore）
 - 原始 QA checkpoint：`5aa3541a-2cf4-43f7-8f40-73f96c69922f`
 - Production D1：`lilai-applications-production`
@@ -116,6 +116,20 @@
   - 新增一次性 Desktop OAuth owner authorization 腳本：隨機 loopback port、PKCE S256、state 驗證、僅 `gmail.send`、`access_type=offline`、`prompt=consent`；refresh token 只印至 terminal，不寫磁碟，access token 不輸出。
 
 ## 最新驗證
+
+- 2026-08-27 `feat/frontend-review-carousel` workers.dev 部署：使用 Wrangler 4.124.0 與 `dist/server/wrangler.json` 部署至既有 Worker `site-creator-vinext-starter`，URL `https://site-creator-vinext-starter.lilaiireland.workers.dev`，Version ID `bb1e505e-d825-4a01-b63a-f66a25000662`（100% traffic），rollback baseline `a03e7505-f83d-4dae-b052-481bf28d4d8c`。部署保留 production D1 `lilai-applications-production`、Queue producer／consumer、Cron 與既有 secrets，未啟用 production custom route。線上 smoke test：首頁 HTTP 200，HTML 含 Reese 第四則評論及 `testimonial-carousel` 控制。部署前驗證：Gmail tests 9/9、rendered HTML tests 2/2、TypeScript 成功、lint 0 errors／20 個既有 warnings、Wrangler deploy dry-run 成功、`git diff --check` 成功；build 顯示 Build complete 後仍以既知 Windows libuv assertion 結束。
+
+- 2026-08-27 Google 評論第四則輪播修正：保留使用者新增的 ID 4（Reese）評論；上一則／下一則操作時暫停自動位移，依目前位置四捨五入對齊至明確的相鄰卡片，避免 `requestAnimationFrame` 自動輪播與 smooth scroll 同時改寫 `scrollLeft` 而產生卡頓或無法順暢前往下一則。循環基準改讀第一組評論的實際寬度，不再假設總捲動寬度恰為兩等分。驗證：`npx.cmd tsc --noEmit` 成功；`npm.cmd run lint` 0 errors／20 個既有 warnings；`node --test tests/rendered-html.test.mjs` 2/2 通過；`git diff --check` 通過。已包含於上述 workers.dev Version ID `bb1e505e-d825-4a01-b63a-f66a25000662`。
+
+- 2026-08-27 學弟妹評論輪播控制：在既有水平自動輪播下方新增可鍵盤操作的上一則／下一則圓形箭頭按鈕，每次依實際卡片寬度移動一張；向左在起點時利用既有重複卡片組無縫回繞，reduced-motion 下改用即時捲動。按鈕具繁中 aria-label 與 `aria-controls`，未修改任何評論內容。驗證：`npx.cmd tsc --noEmit` 成功；`npm.cmd run lint` 0 errors／20 個既有 warnings；`node --test tests/rendered-html.test.mjs` 2/2 通過；本機 `http://localhost:3001/` 已透過 HMR 更新且伺服器持續運行。未部署，production Version ID 與 rollback baseline 不變。
+
+- 2026-08-27 一頁式網站動態節奏：新增無第三方依賴的共用 `RevealController`，以單一 IntersectionObserver（threshold 0.12、bottom root margin -12%）控制一次性 `reveal-up`、`reveal-stagger`、`reveal-mask` 與申請流程 timeline progression，觸發後立即 unobserve。SectionHeading 與品牌／住宿文字採區塊 reveal；語校、一般服務、開局支援及住宿卡片群採 80ms stagger；住宿與品牌照片採 clip-path mask；申請流程先延伸主線再依序顯示步驟；Hero 內容與 CTA 不延遲，僅既有黃色裝飾線展開。表單、導航、FAQ 內容與主要 CTA 排除於入口動畫。手機縮短 duration／stagger 並降低位移，`prefers-reduced-motion` 下不啟用觀察器且 CSS 強制立即呈現。未修改任何文案、功能、API、資料庫或 production routing。驗證：`npx.cmd tsc --noEmit` 成功；`npm.cmd run lint` 0 errors／20 個既有 warnings；最新 build 顯示 Build complete 後仍有 Windows 既知 libuv assertion；build 後 `node --test tests/rendered-html.test.mjs` 2/2 通過；`git diff --check` 通過。本機 `npm.cmd run dev:vinext` 已於 `http://localhost:3001/` 啟動並確認 HTTP 200。未部署，production Version ID 與 rollback baseline 不變。
+
+- 2026-08-27 桌面版 SectionHeading 排版：標題容器上限由 720px 放寬為 900px，使 49px 桌面字級下的「從提交需求到正式開課，流程很清楚」可自然維持單行；標題加入 `text-wrap: balance` 改善必須換行時的分行比例，副標題仍限制於 720px，左對齊變體維持原對齊。未變更內容、API、資料庫或 production routing。驗證：`npx.cmd tsc --noEmit` 成功；`npm.cmd run lint` 0 errors／20 個既有 warnings；`node --test tests/rendered-html.test.mjs` 2/2 通過。未部署，production Version ID 與 rollback baseline 不變。
+
+- 2026-08-27 表單語校依城市篩選：沿用「哩來合作語校」既有 `partnerSchools` 城市標記，直接報名表單的學校下拉選單只顯示所選城市的校區及「其他指定學校／尚未確定」；切換城市會清除不屬於新城市的既有學校與自訂學校值，送出前亦會再次驗證城市與學校是否相符。「其他／尚未確定」不顯示四個既有城市的校區。未變更 API、資料庫或 production routing。驗證：`npx.cmd tsc --noEmit` 成功；`npm.cmd run lint` 0 errors／20 個既有 warnings；`node --test tests/rendered-html.test.mjs` 2/2 通過。未部署，production Version ID 與 rollback baseline 不變。
+
+- 2026-08-27 表單聯絡資料隱私提醒：第一步「你的聯絡資料」加入用途限定、個資法遵循與不任意向無關第三方揭露的提示卡；未採用無法絕對保證的「不會有資料外流風險」用語。未變更表單欄位、API、資料庫或 production routing。驗證：`npx.cmd tsc --noEmit` 成功；`npm.cmd run lint` 0 errors／20 個既有 warnings；`node --test tests/rendered-html.test.mjs` 2/2 通過。未部署，production Version ID 與 rollback baseline 不變。
 
 2026-08-26，`main`：
 
