@@ -112,6 +112,9 @@ test("keeps the form handoff contract explicit", async () => {
   assert.doesNotMatch(data, /leap/i);
   assert.match(page, /consultationAgreementTexts/);
   assert.match(page, /className="privacy-notice" role="note"/);
+  assert.match(page, /src="\/lilai-assets\/leevin\/faci06-1024x683\.jpg"/);
+  assert.match(page, /src="\/lilai-assets\/leevin\/Layer-2\.png"/);
+  assert.doesNotMatch(page, /leevinstay\.com\/wp-content\/uploads/);
   assert.match(page, /聯絡資訊僅供哩來愛爾蘭就本次報名或諮詢與您聯繫使用/);
   assert.match(page, /依個人資料保護法妥善處理/);
   assert.match(page, /getSchoolOptionsForCity/);

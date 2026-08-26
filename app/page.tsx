@@ -482,7 +482,7 @@ export function AccommodationSupportSection() {
         <div className="accommodation-options">
           <article className="accommodation-option-card">
             <div className="accommodation-photo">
-              <img src="https://leevinstay.com/wp-content/uploads/2025/09/faci06-1024x683.jpg" alt="Leevin Stay Hostel 公共空間" loading="lazy" />
+              <img src="/lilai-assets/leevin/faci06-1024x683.jpg" alt="Leevin Stay Hostel 公共空間" loading="lazy" />
               <span>青年旅館</span>
             </div>
             <div className="accommodation-option-copy">
@@ -494,7 +494,7 @@ export function AccommodationSupportSection() {
           </article>
           <article className="accommodation-option-card">
             <div className="accommodation-photo">
-              <img src="https://leevinstay.com/wp-content/uploads/2026/04/Layer-2.png" alt="Leevin Stay Student 住宅式學生住宿房間" loading="lazy" />
+              <img src="/lilai-assets/leevin/Layer-2.png" alt="Leevin Stay Student 住宅式學生住宿房間" loading="lazy" />
               <span>學生住宿</span>
             </div>
             <div className="accommodation-option-copy">

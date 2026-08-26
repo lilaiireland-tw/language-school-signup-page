@@ -73,14 +73,14 @@
 
 ## 部署基準
 
-最近一次部署：2026-08-27（Frontend UX and Google review carousel deployment）
+最近一次部署：2026-08-27（Leevin accommodation local assets deployment）
 
 - 環境：workers.dev，連接 production D1
 - Worker：`site-creator-vinext-starter`
 - URL：https://site-creator-vinext-starter.lilaiireland.workers.dev
 - API：https://site-creator-vinext-starter.lilaiireland.workers.dev/api/applications
-- Version ID：`bb1e505e-d825-4a01-b63a-f66a25000662`（100% traffic）
-- Rollback baseline：`a03e7505-f83d-4dae-b052-481bf28d4d8c`
+- Version ID：`e0880b03-27db-4dc2-bc55-f8cc2ab0266e`（100% traffic）
+- Rollback baseline：`bb1e505e-d825-4a01-b63a-f66a25000662`
 - 部署前 D1 備份：`backups/pre-integration-deploy-2026-08-26.sql`（僅存本機且已被 Git ignore）
 - 原始 QA checkpoint：`5aa3541a-2cf4-43f7-8f40-73f96c69922f`
 - Production D1：`lilai-applications-production`
@@ -116,6 +116,8 @@
   - 新增一次性 Desktop OAuth owner authorization 腳本：隨機 loopback port、PKCE S256、state 驗證、僅 `gmail.send`、`access_type=offline`、`prompt=consent`；refresh token 只印至 terminal，不寫磁碟，access token 不輸出。
 
 ## 最新驗證
+
+- 2026-08-27 Leevin 住宿圖片穩定性與 workers.dev 部署：Hostel 公共空間與 Student 房間圖片由 Leevin WordPress 外部 URL 改為專案 Static Assets `/lilai-assets/leevin/faci06-1024x683.jpg` 與 `/lilai-assets/leevin/Layer-2.png`，避免上游圖片網址失效造成前端空白；保留既有替代文字、lazy loading、版面與外部住宿介紹連結。使用 Wrangler 4.124.0 與 `dist/server/wrangler.json` 部署至 Worker `site-creator-vinext-starter`，URL `https://site-creator-vinext-starter.lilaiireland.workers.dev`，Version ID `e0880b03-27db-4dc2-bc55-f8cc2ab0266e`（100% traffic），rollback baseline `bb1e505e-d825-4a01-b63a-f66a25000662`；未變更 production custom route。驗證：兩個圖片檔案均存在且非空；`npx.cmd tsc --noEmit` 成功；`npm.cmd run lint` 0 errors／20 個既有 warnings；`node --test tests/rendered-html.test.mjs` 2/2 通過；Wrangler deploy dry-run 與 `git diff --check` 通過；build 顯示 Build complete 後仍以既知 Windows libuv assertion 結束。線上 smoke test：首頁 HTTP 200 且引用兩個本機路徑；JPEG 與 PNG 均回傳 HTTP 200、正確 Content-Type 及完整檔案大小。
 
 - 2026-08-27 `feat/frontend-review-carousel` workers.dev 部署：使用 Wrangler 4.124.0 與 `dist/server/wrangler.json` 部署至既有 Worker `site-creator-vinext-starter`，URL `https://site-creator-vinext-starter.lilaiireland.workers.dev`，Version ID `bb1e505e-d825-4a01-b63a-f66a25000662`（100% traffic），rollback baseline `a03e7505-f83d-4dae-b052-481bf28d4d8c`。部署保留 production D1 `lilai-applications-production`、Queue producer／consumer、Cron 與既有 secrets，未啟用 production custom route。線上 smoke test：首頁 HTTP 200，HTML 含 Reese 第四則評論及 `testimonial-carousel` 控制。部署前驗證：Gmail tests 9/9、rendered HTML tests 2/2、TypeScript 成功、lint 0 errors／20 個既有 warnings、Wrangler deploy dry-run 成功、`git diff --check` 成功；build 顯示 Build complete 後仍以既知 Windows libuv assertion 結束。
 
