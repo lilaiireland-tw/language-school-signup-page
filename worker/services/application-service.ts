@@ -6,7 +6,9 @@ export async function submitApplication(db: D1Database, input: ApplicationInput,
     ? requestedId.toLowerCase()
     : crypto.randomUUID();
   const result = await createApplication(db, input, id, new Date().toISOString());
-  return { id, duplicate: result === "duplicate" };
+  const application = await getApplication(db, id);
+  if (!application?.reference_code) throw new Error("Application reference code was not assigned");
+  return { id, referenceCode: application.reference_code, duplicate: result === "duplicate" };
 }
 
 export const findApplication = getApplication;

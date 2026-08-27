@@ -27,13 +27,13 @@ function emailContent(application: ApplicationRow, jobType: IntegrationJobType, 
   const direct = application.service_type === "direct_application";
   if (jobType === "student_email") {
     const subject = direct ? "哩來已收到你的愛爾蘭語校報名" : "哩來已收到你的一對一諮詢需求";
-    const text = `你好 ${application.chinese_name}，\n\n我們已收到你的${direct ? "語校報名" : "諮詢需求"}。\n申請編號：${application.id}\n預計出發：${application.expected_start_month}\n城市：${application.preferred_city}\n\n我們會盡快與你聯絡。`;
+    const text = `你好 ${application.chinese_name}，\n\n我們已收到你的${direct ? "語校報名" : "諮詢需求"}。\n申請編號：${application.reference_code}\n預計出發：${application.expected_start_month}\n城市：${application.preferred_city}\n\n我們會盡快與你聯絡。`;
     return { to: application.email, subject, text };
   }
   const subject = direct
     ? `[網站新名單] 直接報名｜${application.chinese_name}｜${application.preferred_city}｜${application.preferred_school}`
     : `[網站新名單] 一對一諮詢｜${application.chinese_name}｜${application.preferred_city}`;
-  const text = `申請編號：${application.id}\n服務：${application.service_type}\n姓名：${application.chinese_name}\nEmail：${application.email}\n電話：${application.phone}\nLINE：${application.line_id}\n城市：${application.preferred_city}\n學校：${application.preferred_school || application.custom_school}\n課程：${application.course_type}\n預計出發：${application.expected_start_month}\n課程長度：${application.course_duration}\n預算：${application.budget_range}`;
+  const text = `申請編號：${application.reference_code}\n服務：${application.service_type}\n姓名：${application.chinese_name}\nEmail：${application.email}\n電話：${application.phone}\nLINE：${application.line_id}\n城市：${application.preferred_city}\n學校：${application.preferred_school || application.custom_school}\n課程：${application.course_type}\n預計出發：${application.expected_start_month}\n課程長度：${application.course_duration}\n預算：${application.budget_range}`;
   return { to: env.INTERNAL_NOTIFICATION_EMAIL, subject, text };
 }
 

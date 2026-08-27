@@ -37,6 +37,7 @@ export interface ApplicationInput {
 
 export interface ApplicationRow {
   id: string;
+  reference_code: string;
   service_type: ServiceType;
   chinese_name: string;
   email: string;

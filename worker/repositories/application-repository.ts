@@ -36,9 +36,9 @@ export async function listApplications(db: D1Database, params: { status?: string
   if (params.status) { clauses.push(`crm_status = ?${values.length + 1}`); values.push(params.status); }
   if (params.serviceType) { clauses.push(`service_type = ?${values.length + 1}`); values.push(params.serviceType); }
   if (params.query) {
-    clauses.push(`(chinese_name LIKE ?${values.length + 1} OR email LIKE ?${values.length + 2} OR phone LIKE ?${values.length + 3})`);
+    clauses.push(`(reference_code LIKE ?${values.length + 1} OR chinese_name LIKE ?${values.length + 2} OR email LIKE ?${values.length + 3} OR phone LIKE ?${values.length + 4})`);
     const query = `%${params.query}%`;
-    values.push(query, query, query);
+    values.push(query, query, query, query);
   }
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   const count = await db.prepare(`SELECT COUNT(*) AS total FROM applications ${where}`).bind(...values).first<{ total: number }>();

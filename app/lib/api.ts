@@ -17,9 +17,13 @@ export async function submitDirectApplication(
     const result = await response.json().catch(() => null) as { error?: { message?: string } } | null;
     throw new Error(result?.error?.message ?? "報名資料送出失敗，請稍後再試。");
   }
+  const result = await response.json() as { submissionId?: unknown };
+  if (typeof result.submissionId !== "string" || !/^ST-\d{6,}$/.test(result.submissionId)) {
+    throw new Error("報名已送出，但申請編號格式不正確，請聯絡哩來愛爾蘭確認。");
+  }
   return {
     ok: true,
-    submissionId,
+    submissionId: result.submissionId,
     submission: {
       ...form,
       isicEligibilityStatus: "pending",

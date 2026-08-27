@@ -23,16 +23,22 @@ async function notionRequest(env: Cloudflare.Env, path: string, body: unknown): 
 
 export async function syncApplicationToNotion(application: ApplicationRow, env: Cloudflare.Env): Promise<string> {
   const existing = await notionRequest(env, `/databases/${env.NOTION_DATABASE_ID}/query`, {
-    filter: { property: "Submission ID", rich_text: { equals: application.id } },
+    filter: { property: "Submission ID", rich_text: { equals: application.reference_code } },
     page_size: 1,
   });
   if (existing.results?.[0]?.id) return existing.results[0].id;
+
+  const legacy = await notionRequest(env, `/databases/${env.NOTION_DATABASE_ID}/query`, {
+    filter: { property: "Submission ID", rich_text: { equals: application.id } },
+    page_size: 1,
+  });
+  if (legacy.results?.[0]?.id) return legacy.results[0].id;
 
   const page = await notionRequest(env, "/pages", {
     parent: { database_id: env.NOTION_DATABASE_ID },
     properties: {
       Name: { title: [{ text: { content: application.chinese_name } }] },
-      "Submission ID": { rich_text: [{ text: { content: application.id } }] },
+      "Submission ID": { rich_text: [{ text: { content: application.reference_code } }] },
       "Service Type": { select: { name: application.service_type } },
       Email: { email: application.email },
       Phone: { phone_number: application.phone },

@@ -87,13 +87,18 @@ test("server-renders the Lilai Ireland application page", async () => {
 });
 
 test("keeps the form handoff contract explicit", async () => {
-  const [types, api, data, page, styles, revealController] = await Promise.all([
+  const [types, api, data, page, styles, revealController, referenceMigration, applicationService, gmail, notion, repository] = await Promise.all([
     readFile(new URL("../app/lib/types.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/lib/api.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/lib/data.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../app/components/reveal-controller.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../migrations/0002_add_application_reference_codes.sql", import.meta.url), "utf8"),
+    readFile(new URL("../worker/services/application-service.ts", import.meta.url), "utf8"),
+    readFile(new URL("../worker/gmail/send.ts", import.meta.url), "utf8"),
+    readFile(new URL("../worker/queue/notion.ts", import.meta.url), "utf8"),
+    readFile(new URL("../worker/repositories/application-repository.ts", import.meta.url), "utf8"),
   ]);
 
   assert.match(types, /serviceType:\s*"direct_application"\s*\|\s*"consultation"/);
@@ -102,7 +107,19 @@ test("keeps the form handoff contract explicit", async () => {
   assert.doesNotMatch(types, /englishName|leap/i);
   assert.match(api, /DIRECT_APPLICATION_NOTIFICATION_EMAIL\s*=\s*"lilaiireland@gmail.com"/);
   assert.match(api, /isicEligibilityStatus:\s*"pending"/);
+  assert.match(api, /\^ST-\\d\{6,\}\$/);
+  assert.match(api, /submissionId:\s*result\.submissionId/);
   assert.doesNotMatch(api, /leap/i);
+  assert.match(referenceMigration, /reference_code TEXT/);
+  assert.match(referenceMigration, /printf\('ST-%06d'/);
+  assert.match(referenceMigration, /CREATE UNIQUE INDEX applications_reference_code_idx/);
+  assert.match(referenceMigration, /CREATE TRIGGER applications_assign_reference_code/);
+  assert.match(applicationService, /referenceCode:\s*application\.reference_code/);
+  assert.match(gmail, /申請編號：\$\{application\.reference_code\}/);
+  assert.doesNotMatch(gmail, /申請編號：\$\{application\.id\}/);
+  assert.match(notion, /equals:\s*application\.reference_code/);
+  assert.match(notion, /content:\s*application\.reference_code/);
+  assert.match(repository, /reference_code LIKE/);
   assert.match(data, /"ICOT College Cork"/);
   assert.match(data, /"English Path"/);
   assert.match(data, /"Academic Bridge"/);

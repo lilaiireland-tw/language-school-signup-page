@@ -55,6 +55,7 @@
   - `GET /api/admin/applications/:id`
   - `PATCH /api/admin/applications/:id`
 - 管理 API 使用 Cloudflare Secret `ADMIN_API_TOKEN`。
+- `applications.id` 維持 UUID 作為內部主鍵、Queue payload、外鍵與冪等識別；`applications.reference_code` 是對外顯示與查詢用的遞增編號，格式為 `ST-000001`。
 
 ### 非同步整合
 
@@ -73,15 +74,15 @@
 
 ## 部署基準
 
-最近一次部署：2026-08-27（Leevin accommodation local assets deployment）
+最近一次部署：2026-08-27（Readable application reference deployment）
 
 - 環境：workers.dev，連接 production D1
 - Worker：`site-creator-vinext-starter`
 - URL：https://site-creator-vinext-starter.lilaiireland.workers.dev
 - API：https://site-creator-vinext-starter.lilaiireland.workers.dev/api/applications
-- Version ID：`e0880b03-27db-4dc2-bc55-f8cc2ab0266e`（100% traffic）
-- Rollback baseline：`bb1e505e-d825-4a01-b63a-f66a25000662`
-- 部署前 D1 備份：`backups/pre-integration-deploy-2026-08-26.sql`（僅存本機且已被 Git ignore）
+- Version ID：`eb0cfa98-da5d-4b74-bcd2-58b887efcfa1`（100% traffic）
+- Rollback baseline：`e0880b03-27db-4dc2-bc55-f8cc2ab0266e`
+- 部署前 D1 備份：`backups/pre-reference-code-migration-2026-08-27.sql`（11,403 bytes，僅存本機且已被 Git ignore）
 - 原始 QA checkpoint：`5aa3541a-2cf4-43f7-8f40-73f96c69922f`
 - Production D1：`lilai-applications-production`
 - D1 database ID：`d7b4209c-fce2-4f0d-9b18-3f19c183b430`
@@ -116,6 +117,8 @@
   - 新增一次性 Desktop OAuth owner authorization 腳本：隨機 loopback port、PKCE S256、state 驗證、僅 `gmail.send`、`access_type=offline`、`prompt=consent`；refresh token 只印至 terminal，不寫磁碟，access token 不輸出。
 
 ## 最新驗證
+
+- 2026-08-27 易讀申請編號與 production D1／workers.dev 發布：新增 additive D1 migration `0002_add_application_reference_codes.sql`，依既有資料建立時間回填 `ST-000001` 起的 `reference_code`，並以 D1 sequence singleton + AFTER INSERT trigger 原子配置後續流水號及 unique index 防止重複；內部 UUID 主鍵、Queue payload、integration job 外鍵與 Idempotency-Key 均維持不變。學生信與內部通知信的「申請編號」、新建 Notion CRM 的 Submission ID、公開 API `submissionId` 皆改用 `reference_code`；Notion 同步在查新編號後仍以 UUID fallback 查找舊頁面，避免既有 pending job 重複建頁；Admin API `q` 搜尋新增 `reference_code`。隔離 D1 驗證：0001/0002 migration 均成功，連續兩筆 insert 分別取得 `ST-000001`、`ST-000002`；隔離狀態已清除。Production D1 migration 前完整備份為 `backups/pre-reference-code-migration-2026-08-27.sql`（11,403 bytes、Git ignored）；0002 remote migration 成功，既有 3 筆回填 `ST-000001` 至 `ST-000003`，缺漏 0、重複 0、next value 4。使用 Wrangler 4.124.0 部署至 Worker `site-creator-vinext-starter`，URL `https://site-creator-vinext-starter.lilaiireland.workers.dev`，Version ID `eb0cfa98-da5d-4b74-bcd2-58b887efcfa1`（100% traffic），rollback baseline `e0880b03-27db-4dc2-bc55-f8cc2ab0266e`；未變更 production custom route。線上以既有非真實 E2E UUID 執行 duplicate smoke test，HTTP 200 回傳 `submissionId: ST-000001`、`duplicate: true`；驗證後 applications 3、integration jobs 9、next value 4 均未變，未新增資料、寄信或 Notion job。驗證：`npx.cmd tsc --noEmit` 成功；`npm.cmd run lint` 0 errors／20 個既有 warnings；Gmail tests 9/9、rendered HTML tests 2/2、Wrangler deploy dry-run 與 `git diff --check` 通過；build 顯示 Build complete 後仍以既知 Windows libuv assertion 結束。
 
 - 2026-08-27 Leevin 住宿圖片穩定性與 workers.dev 部署：Hostel 公共空間與 Student 房間圖片由 Leevin WordPress 外部 URL 改為專案 Static Assets `/lilai-assets/leevin/faci06-1024x683.jpg` 與 `/lilai-assets/leevin/Layer-2.png`，避免上游圖片網址失效造成前端空白；保留既有替代文字、lazy loading、版面與外部住宿介紹連結。使用 Wrangler 4.124.0 與 `dist/server/wrangler.json` 部署至 Worker `site-creator-vinext-starter`，URL `https://site-creator-vinext-starter.lilaiireland.workers.dev`，Version ID `e0880b03-27db-4dc2-bc55-f8cc2ab0266e`（100% traffic），rollback baseline `bb1e505e-d825-4a01-b63a-f66a25000662`；未變更 production custom route。驗證：兩個圖片檔案均存在且非空；`npx.cmd tsc --noEmit` 成功；`npm.cmd run lint` 0 errors／20 個既有 warnings；`node --test tests/rendered-html.test.mjs` 2/2 通過；Wrangler deploy dry-run 與 `git diff --check` 通過；build 顯示 Build complete 後仍以既知 Windows libuv assertion 結束。線上 smoke test：首頁 HTTP 200 且引用兩個本機路徑；JPEG 與 PNG 均回傳 HTTP 200、正確 Content-Type 及完整檔案大小。
 
@@ -170,6 +173,8 @@
   - Windows sandbox／權限設定可能讓 Wrangler 無法寫入使用者目錄的 debug log（`EPERM`）；目前 CLI 操作本身仍可成功。
 
 ## 未解風險與阻塞
+
+- 易讀申請編號已發布；Worker rollback 不會自動移除 additive `reference_code` schema、sequence table 或 trigger。若需回退 Worker，可回切 `e0880b03-27db-4dc2-bc55-f8cc2ab0266e`，D1 schema 保留不影響舊版 Worker。
 
 - Cloudflare CLI OAuth session 已重新登入成功。
 - 正式 Queue `lilai-application-integrations` 與 DLQ `lilai-application-integrations-dlq` 已建立；主 Queue 已有 1 producer／1 consumer，consumer 與 Cron 正常運作。

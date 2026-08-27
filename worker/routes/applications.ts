@@ -13,7 +13,7 @@ export async function handleCreateApplication(request: Request, env: Cloudflare.
         console.error(JSON.stringify({ event: "integration_enqueue_failed", applicationId: result.id, error: error instanceof Error ? error.message : "unknown" }));
       }
     }
-    return jsonResponse({ ok: true, submissionId: result.id, duplicate: result.duplicate }, result.duplicate ? 200 : 201);
+    return jsonResponse({ ok: true, submissionId: result.referenceCode, duplicate: result.duplicate }, result.duplicate ? 200 : 201);
   } catch (error) {
     if (error instanceof HttpError) return errorResponse(error.status, error.code, error.message, error.details);
     console.error(JSON.stringify({ event: "application_create_failed", error: error instanceof Error ? error.message : "unknown" }));
