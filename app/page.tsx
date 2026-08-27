@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   ArrowRight,
@@ -38,13 +38,19 @@ import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
 import { RevealController } from "./components/reveal-controller";
 import { submitDirectApplication } from "./lib/api";
 import { trackEvent } from "./lib/analytics";
-import { courseOptions, schoolOptions as allSchoolOptions, testimonials } from "./lib/data";
+import { courseOptions, testimonials } from "./lib/data";
+import { BRAND_LINKS } from "./lib/brand-links";
+import { ACCOMMODATION_TERMS, CONSULTATION_TERMS, DIRECT_APPLICATION_TERMS, LEEVIN_TERMS, formatTwd } from "./lib/commercial-terms";
+import { evaluateDirectApplicationReadiness } from "./lib/application/readiness";
+import { sanitizeApplicationPayload } from "./lib/application/sanitize";
+import { getSchoolOptionsForCity, visiblePartnerSchools } from "./lib/schools";
 import type { DirectApplicationFormData } from "./lib/types";
 
-const consultationUrl = "#direct-application-form";
-const assessmentUrl = "https://lilaiireland.com/consult/";
-const websiteUrl = "https://lilaiireland.com";
-const googleReviewUrl = "https://g.page/r/CWJ8OfbyjJMKEBE/review";
+const consultationUrl = BRAND_LINKS.consultation;
+const assessmentUrl = BRAND_LINKS.assessment;
+const websiteUrl = BRAND_LINKS.website;
+const googleReviewUrl = BRAND_LINKS.googleReviews;
+const accommodationFeeHint = `由哩來學長姐依城市、入住期間、房型與當期房況提供合作報價；住宿安排服務費 ${formatTwd(ACCOMMODATION_TERMS.arrangementFeeTwd)}（原價 ${formatTwd(ACCOMMODATION_TERMS.arrangementFeeOriginalTwd)}）`;
 
 const initialForm: DirectApplicationFormData = {
   serviceType: "direct_application",
@@ -93,13 +99,12 @@ function Logo({ inverse = false }: { inverse?: boolean }) {
   );
 }
 
-function TrackedLink({ href, event, className, children }: { href: string; event: string; className?: string; children: ReactNode }) {
+function TrackedLink({ href, event, intent, accommodationIntent = false, className, children }: { href: string; event: string; intent?: DirectApplicationFormData["serviceType"]; accommodationIntent?: boolean; className?: string; children: ReactNode }) {
   return <a href={href} className={className} onClick={() => {
     trackEvent(event, { destination: href }, `${event}:${href}`);
-    if (href === "#direct-application-form") {
-      const intent = event.includes("consultation") ? "consultation" : "direct_application";
+    if (href === "#direct-application-form" && intent) {
       window.dispatchEvent(new CustomEvent("lilai-form-intent", { detail: { intent } }));
-      if (event.includes("accommodation")) {
+      if (accommodationIntent) {
         window.dispatchEvent(new CustomEvent("lilai-accommodation-intent"));
       }
     }
@@ -113,16 +118,16 @@ export function LandingHeader() {
         <Logo />
         <nav className="desktop-nav" aria-label="頁首行動選單">
           <TrackedLink href={assessmentUrl} event="free_assessment_click" className="nav-link">免費階段評估</TrackedLink>
-          <TrackedLink href={consultationUrl} event="consultation_redirect_click" className="nav-link">我需要選校諮詢</TrackedLink>
-          <TrackedLink href="#direct-application-form" event="direct_application_start" className="button button-primary button-small">直接開始報名</TrackedLink>
+          <TrackedLink href={consultationUrl} event="consultation_redirect_click" intent="consultation" className="nav-link">我需要選校諮詢</TrackedLink>
+          <TrackedLink href="#direct-application-form" event="direct_application_start" intent="direct_application" className="button button-primary button-small">直接開始報名</TrackedLink>
         </nav>
         <div className="mobile-nav">
-          <TrackedLink href="#direct-application-form" event="direct_application_start" className="button button-primary button-compact">直接報名</TrackedLink>
+          <TrackedLink href="#direct-application-form" event="direct_application_start" intent="direct_application" className="button button-primary button-compact">直接報名</TrackedLink>
           <details className="menu-details">
             <summary aria-label="開啟其他選項"><Menu size={22} /></summary>
             <div className="menu-panel">
               <TrackedLink href={assessmentUrl} event="free_assessment_click">免費階段評估</TrackedLink>
-              <TrackedLink href={consultationUrl} event="consultation_redirect_click">我需要選校諮詢</TrackedLink>
+              <TrackedLink href={consultationUrl} event="consultation_redirect_click" intent="consultation">我需要選校諮詢</TrackedLink>
             </div>
           </details>
         </div>
@@ -145,11 +150,11 @@ export function HeroSection() {
           <p className="hero-copy">如果你已經確認想前往愛爾蘭，也大致知道學校、城市或課程方向，可以直接提交報名需求。哩來確認條件與方案後，將協助你完成報價、申請、付款、文件與行前準備。</p>
           <div className="hero-actions">
             <div>
-              <TrackedLink href="#direct-application-form" event="hero_direct_application_click" className="button button-primary button-large">直接提交報名需求 <ArrowRight size={19} /></TrackedLink>
+              <TrackedLink href="#direct-application-form" event="hero_direct_application_click" intent="direct_application" className="button button-primary button-large">直接提交報名需求 <ArrowRight size={19} /></TrackedLink>
               <small>現在不需付款，先確認報名資格與學校。</small>
             </div>
             <div>
-              <TrackedLink href={consultationUrl} event="hero_consultation_click" className="button button-secondary button-large">我還需要協助選校</TrackedLink>
+              <TrackedLink href={consultationUrl} event="hero_consultation_click" intent="consultation" className="button button-secondary button-large">我還需要協助選校</TrackedLink>
               <small>該費用會於開課後連同訂金完整退還。</small>
             </div>
           </div>
@@ -187,16 +192,16 @@ export function DirectApplicationOffer() {
         <SectionHeading eyebrow="直接報名限定" title="已經準備好了，直接報名更划算" subtitle="通過直接報名資格確認後，在付款通知指定期限內完成訂金，即可享有直接報名限定權益。" />
         <div className="offer-grid">
           <article className="offer-card offer-card-featured">
-            <span className="card-label">7 日報名優惠</span>
-            <p className="old-price">訂金原價 <s>NT$6,000</s></p>
-            <h3>7 日內完成付款<br /><strong>NT$3,000</strong></h3>
+            <span className="card-label">{DIRECT_APPLICATION_TERMS.promoDeadlineDays} 日報名優惠</span>
+            <p className="old-price">訂金原價 <s>{formatTwd(DIRECT_APPLICATION_TERMS.standardDepositTwd)}</s></p>
+            <h3>{DIRECT_APPLICATION_TERMS.promoDeadlineDays} 日內完成付款<br /><strong>{formatTwd(DIRECT_APPLICATION_TERMS.promoDepositTwd)}</strong></h3>
             <p>通過資格確認並收到付款通知後，於信件所載期限內完成付款，即享訂金半價。</p>
             <div className="note-box"><Info size={18} /><span>訂金將於學生正式抵達愛爾蘭並開始就讀已報名課程後，依報名條款退還。</span></div>
           </article>
           <article className="offer-card"><span className="card-label">直接報名、不使用選校諮詢者加贈</span><BadgeCheck className="card-icon" /><h3>加贈 ISIC 國際學生證</h3><p>報名 25+8 長期課程的學生基本上均適用提出申請；通過 ISIC 全日制學生資格與文件審核後，可取得 12 個月國際學生身分、使用數位學生證並查看全球學生優惠。</p><a className="text-link offer-terms-link" href="#opening-support">查看開局支援內容</a></article>
           <article className="offer-card"><span className="card-label">愛爾蘭開局支援系統</span><Gift className="card-icon" /><h3>開局大禮包 Lite／Pro</h3><p>不只協助送出語校申請，也把行前、落地、網路、求職與英文練習資源準備好。</p><a className="text-link offer-terms-link" href="#opening-support">查看 Lite／Pro 支援內容</a></article>
         </div>
-        <div className="center-cta"><TrackedLink href="#direct-application-form" event="direct_application_start" className="button button-primary button-large">取得直接報名資格 <ArrowRight size={19} /></TrackedLink><p>提交表單後，通過確認才會收到付款通知，現在不需付款。</p><small>七日優惠期限以付款通知中所載截止日期為準。課程、贈禮與資格依正式活動與報名條款為準。</small></div>
+        <div className="center-cta"><TrackedLink href="#direct-application-form" event="direct_application_start" intent="direct_application" className="button button-primary button-large">取得直接報名資格 <ArrowRight size={19} /></TrackedLink><p>提交表單後，通過確認才會收到付款通知，現在不需付款。</p><small>七日優惠期限以付款通知中所載截止日期為準。課程、贈禮與資格依正式活動與報名條款為準。</small></div>
       </div>
     </section>
   );
@@ -220,49 +225,14 @@ export function AudienceQualificationSection() {
   return <section className="section"><div className="shell"><SectionHeading title="你不一定需要先花時間諮詢" subtitle="如果以下多數描述符合你，就可以直接進入報名流程。" /><div className="four-grid"><AudienceQualificationCard icon={MapPin} title="已經決定前往愛爾蘭">你不是還在比較不同國家，而是已經有明確的愛爾蘭出發計畫。</AudienceQualificationCard><AudienceQualificationCard icon={Landmark} title="已大致選好城市或學校">你已經知道想去 Dublin、Cork，或已有心儀的語言學校。</AudienceQualificationCard><AudienceQualificationCard icon={BriefcaseBusiness} title="已有大約的時間與預算">不需要每個細節都確定，但已有可執行的出發時間與資金規劃。</AudienceQualificationCard><AudienceQualificationCard icon={BookOpenCheck} title="不需要完整選校分析">你只需要確認課程、報價、名額及報名細節，不需要重新比較多間學校。</AudienceQualificationCard></div><div className="info-banner"><Info size={22} /><p><strong>還有少量問題並不影響直接報名。</strong>完成訂金後，哩來仍會協助處理申請、付款、文件與出發流程中的必要問題。</p></div></div></section>;
 }
 
-const partnerSchools = [
-  { name: "ISI Dublin", city: "Dublin", logo: "logo-isi-learning.png" },
-  { name: "Babel Academy of English", city: "Dublin", logo: "logo-babel-academy.png" },
-  { name: "Atlas Language School", city: "Dublin", logo: "logo-atlas-language-school.png", logoSize: "large" },
-  { name: "NED College", city: "Dublin", logo: "logo-ned-college.png" },
-  { name: "NED College Limerick", city: "Limerick", logo: "logo-ned-college.png" },
-  { name: "ICOT College", city: "Dublin", logo: "logo-icot-college.png" },
-  { name: "ICOT College Cork", city: "Cork", logo: "logo-icot-college.png" },
-  { name: "ELI Schools", city: "Dublin", logo: "logo-eli-schools.png" },
-  { name: "Emerald Cultural Institute", city: "Dublin", logo: "logo-emerald-cultural-institute.png", logoSize: "large" },
-  { name: "Centre of English Studies", city: "Dublin", logo: "logo-centre-of-english-studies.png" },
-  { name: "Erin College Dublin", city: "Dublin", logo: "logo-erin-college.png", logoSize: "large" },
-  { name: "Liffey College", city: "Dublin", logo: "logo-liffey-college.png" },
-  { name: "Apollo Language Centre", city: "Dublin", logo: "logo-apollo-language-centre.png" },
-  { name: "SEDA College", city: "Dublin", logo: "logo-seda-college.png" },
-  { name: "Everest English", city: "Dublin", logo: "logo-everest-english.png" },
-  { name: "Active Language Learning", city: "Dublin", logo: "logo-active-language-learning.png", logoSize: "active" },
-  { name: "ATC Language Schools", city: "Dublin", logo: "logo-atc-language-schools.png", logoSize: "large" },
-  { name: "EC English", city: "Dublin", logo: "logo-ec-english.png" },
-  { name: "English Path", city: "Dublin", logo: "logo-english-path.png" },
-  { name: "Academic Bridge", city: "Dublin", logo: "logo-academic-bridge.png" },
-  { name: "Delfin English School", city: "Dublin", logo: "logo-delfin-english-school.png" },
-  { name: "Twin English Centre", city: "Dublin", logo: "logo-twin-english-centre.png" },
-  { name: "Erin College Cork", city: "Cork", logo: "logo-erin-college.png", logoSize: "large" },
-  { name: "Cork English College", city: "Cork", logo: "logo-cork-english-college.png" },
-  { name: "Bridge Mills Galway", city: "Galway", logo: "logo-bridge-mills-galway.png" },
-  { name: "Limerick Language Centre", city: "Limerick", logo: "logo-limerick-language-centre.png" },
-];
-
-const nonCitySchoolOptions = allSchoolOptions.filter((school) => school === "其他指定學校" || school === "尚未確定");
-const getSchoolOptionsForCity = (city: string) => [
-  ...partnerSchools.filter((school) => school.city === city).map((school) => school.name),
-  ...nonCitySchoolOptions,
-];
-
 export function PartnerSchoolSection() {
   const cities = ["Dublin", "Cork", "Galway", "Limerick"];
   const [activeCity, setActiveCity] = useState("Dublin");
   const [showAllDublin, setShowAllDublin] = useState(false);
-  const citySchools = partnerSchools.filter((school) => school.city === activeCity);
+  const citySchools = visiblePartnerSchools.filter((school) => school.city === activeCity);
   const visibleSchools = activeCity === "Dublin" && !showAllDublin ? citySchools.slice(0, 8) : citySchools;
 
-  return <section className="section partner-schools-section"><div className="shell"><SectionHeading eyebrow="PARTNER SCHOOLS" title="哩來合作語校" subtitle="以下語校皆可在報名表中直接指定；如果還沒決定，也可以先選擇「尚未確定」，由我們確認適合的下一步。" /><div className="school-city-tabs" role="tablist" aria-label="依城市查看合作語校">{cities.map((city) => <button type="button" role="tab" aria-selected={activeCity === city} aria-controls="partner-school-panel" className={cn("school-city-tab", activeCity === city && "is-active")} key={city} onClick={() => { setActiveCity(city); setShowAllDublin(false); }}>{city}<span>{partnerSchools.filter((school) => school.city === city).length}</span></button>)}</div><div className="partner-school-grid" id="partner-school-panel" role="tabpanel">{visibleSchools.map((school) => <article className="partner-school-card" key={`${school.name}-${school.city}`}><div className={cn("partner-school-logo", school.logoSize && `partner-school-logo-${school.logoSize}`)}>{school.logo ? <img src={`/lilai-assets/schools/${school.logo}`} alt={`${school.name} 校徽`} loading="lazy" /> : <strong className="partner-school-wordmark" aria-hidden="true">{school.name.split(" ").map((word) => word[0]).join("").slice(0, 4).toUpperCase()}</strong>}</div><div><h3>{school.name}</h3><span><MapPin size={13} />{school.city}</span></div></article>)}</div>{activeCity === "Dublin" && citySchools.length > 8 && <div className="partner-school-actions"><button type="button" className="button button-secondary" aria-expanded={showAllDublin} aria-controls="partner-school-panel" onClick={() => setShowAllDublin((current) => !current)}>{showAllDublin ? "收合語校" : "查看更多語校"}</button></div>}<p className="partner-school-note">合作課程、開課日、名額與最新報價，仍以哩來向校方確認後提供的資訊為準。</p></div></section>;
+  return <section className="section partner-schools-section"><div className="shell"><SectionHeading eyebrow="PARTNER SCHOOLS" title="哩來合作語校" subtitle="以下語校皆可在報名表中直接指定；如果還沒決定，也可以先選擇「尚未確定」，由我們確認適合的下一步。" /><div className="school-city-tabs" role="tablist" aria-label="依城市查看合作語校">{cities.map((city) => <button type="button" role="tab" aria-selected={activeCity === city} aria-controls="partner-school-panel" className={cn("school-city-tab", activeCity === city && "is-active")} key={city} onClick={() => { setActiveCity(city); setShowAllDublin(false); }}>{city}<span>{visiblePartnerSchools.filter((school) => school.city === city).length}</span></button>)}</div><div className="partner-school-grid" id="partner-school-panel" role="tabpanel">{visibleSchools.map((school) => <article className="partner-school-card" key={school.id}><div className={cn("partner-school-logo", school.logoSize && `partner-school-logo-${school.logoSize}`)}><img src={`/lilai-assets/schools/${school.logo}`} alt={`${school.name} 校徽`} loading="lazy" /></div><div><h3>{school.name}</h3><span><MapPin size={13} />{school.city}</span></div></article>)}</div>{activeCity === "Dublin" && citySchools.length > 8 && <div className="partner-school-actions"><button type="button" className="button button-secondary" aria-expanded={showAllDublin} aria-controls="partner-school-panel" onClick={() => setShowAllDublin((current) => !current)}>{showAllDublin ? "收合語校" : "查看更多語校"}</button></div>}<p className="partner-school-note">合作課程、開課日、名額與最新報價，仍以哩來向校方確認後提供的資訊為準。</p></div></section>;
 }
 
 function BulletList({ items, muted = false }: { items: string[]; muted?: boolean }) {
@@ -271,20 +241,20 @@ function BulletList({ items, muted = false }: { items: string[]; muted?: boolean
 
 export function ServicePathComparison() {
   return <section className="section section-tint" id="consultation"><div className="shell"><SectionHeading title="選擇符合你目前進度的方式" /><div className="path-grid">
-    <article className="path-card path-primary"><span className="card-label">推薦給已做好前期研究的人</span><h3>直接報名語校</h3><p className="list-label">適合你，如果你：</p><BulletList items={["已決定前往愛爾蘭", "已大致確認城市或學校", "有預計出發時間", "不需要完整語校比較"]} /><div className="divider" /><p className="list-label">流程開始後包含：</p><BulletList items={["學校與課程可行性確認", "最新報價與名額確認", "語校申請與文件協助", "校方付款流程說明", "入學文件追蹤", "行前與抵達支援", "符合資格者享直接報名限定禮"]} /><TrackedLink href="#direct-application-form" event="direct_application_start" className="button button-primary button-block">提交直接報名需求 <ArrowRight size={18} /></TrackedLink><small>7 日內完成付款，訂金 NT$3,000；正式開課後依約退還。</small></article>
-    <article className="path-card path-secondary"><span className="card-label card-label-muted">適合仍需要完整比較的人</span><h3>一對一語校諮詢</h3><p className="list-label">適合你，如果你：</p><BulletList items={["還在比較不同城市", "不知道應該選哪間學校", "希望進行完整預算與方案分析", "需要個人化選校與決策建議"]} muted /><div className="divider" /><p className="list-label">諮詢包含：</p><BulletList items={["一對一需求訪談", "城市與語校比較", "課程、時段與預算分析", "出發方案與下一步建議"]} muted /><p className="consult-price">NT$800<span>／次（原價NT$1,000／次）</span></p><TrackedLink href={consultationUrl} event="consultation_redirect_click" className="button button-secondary button-block">預約一對一語校諮詢</TrackedLink><small>該費用會於開課後連同訂金完整退還，等於沒花諮詢費！</small></article>
+    <article className="path-card path-primary"><span className="card-label">推薦給已做好前期研究的人</span><h3>直接報名語校</h3><p className="list-label">適合你，如果你：</p><BulletList items={["已決定前往愛爾蘭", "已大致確認城市或學校", "有預計出發時間", "不需要完整語校比較"]} /><div className="divider" /><p className="list-label">流程開始後包含：</p><BulletList items={["學校與課程可行性確認", "最新報價與名額確認", "語校申請與文件協助", "校方付款流程說明", "入學文件追蹤", "行前與抵達支援", "符合資格者享直接報名限定禮"]} /><TrackedLink href="#direct-application-form" event="direct_application_start" intent="direct_application" className="button button-primary button-block">提交直接報名需求 <ArrowRight size={18} /></TrackedLink><small>{DIRECT_APPLICATION_TERMS.promoDeadlineDays} 日內完成付款，訂金 {formatTwd(DIRECT_APPLICATION_TERMS.promoDepositTwd)}；正式開課後依約退還。</small></article>
+    <article className="path-card path-secondary"><span className="card-label card-label-muted">適合仍需要完整比較的人</span><h3>一對一語校諮詢</h3><p className="list-label">適合你，如果你：</p><BulletList items={["還在比較不同城市", "不知道應該選哪間學校", "希望進行完整預算與方案分析", "需要個人化選校與決策建議"]} muted /><div className="divider" /><p className="list-label">諮詢包含：</p><BulletList items={["一對一需求訪談", "城市與語校比較", "課程、時段與預算分析", "出發方案與下一步建議"]} muted /><p className="consult-price">{formatTwd(CONSULTATION_TERMS.priceTwd)}<span>／次（原價{formatTwd(CONSULTATION_TERMS.originalPriceTwd)}／次）</span></p><TrackedLink href={consultationUrl} event="consultation_redirect_click" intent="consultation" className="button button-secondary button-block">預約一對一語校諮詢</TrackedLink><small>該費用會於開課後連同訂金完整退還，等於沒花諮詢費！</small></article>
   </div></div></section>;
 }
 
 export function ServiceBoundarySection() {
-  return <section className="section"><div className="shell narrow-shell"><SectionHeading title="直接報名前，我們會先確認哪些事情？" /><div className="boundary-grid"><article className="boundary-card boundary-yes"><h3><CheckCircle2 /> 訂金付款前，哩來會協助</h3><BulletList items={["確認是否符合直接報名條件", "確認學校與課程是否能夠申請", "確認預計出發時間與基本需求", "說明訂金、報價與後續流程", "簡短核對必要報名細節"]} /></article><article className="boundary-card boundary-no"><h3><X /> 直接報名不包含</h3><BulletList items={["多間語校完整比較", "不同城市的完整生活分析", "個人化預算規劃", "多輪方案修改", "完整線上一對一選校諮詢"]} muted /></article></div><div className="clarification"><ShieldCheck size={28} /><p><strong>完成訂金後，哩來將正式啟動報名服務，</strong>並協助處理課程確認、正式報價、申請文件、付款流程、校方聯繫與行前準備中的合理問題。</p></div><div className="center"><TrackedLink href={consultationUrl} event="consultation_redirect_click" className="button button-secondary">我需要完整選校協助</TrackedLink></div></div></section>;
+  return <section className="section"><div className="shell narrow-shell"><SectionHeading title="直接報名前，我們會先確認哪些事情？" /><div className="boundary-grid"><article className="boundary-card boundary-yes"><h3><CheckCircle2 /> 訂金付款前，哩來會協助</h3><BulletList items={["確認是否符合直接報名條件", "確認學校與課程是否能夠申請", "確認預計出發時間與基本需求", "說明訂金、報價與後續流程", "簡短核對必要報名細節"]} /></article><article className="boundary-card boundary-no"><h3><X /> 直接報名不包含</h3><BulletList items={["多間語校完整比較", "不同城市的完整生活分析", "個人化預算規劃", "多輪方案修改", "完整線上一對一選校諮詢"]} muted /></article></div><div className="clarification"><ShieldCheck size={28} /><p><strong>完成訂金後，哩來將正式啟動報名服務，</strong>並協助處理課程確認、正式報價、申請文件、付款流程、校方聯繫與行前準備中的合理問題。</p></div><div className="center"><TrackedLink href={consultationUrl} event="consultation_redirect_click" intent="consultation" className="button button-secondary">我需要完整選校協助</TrackedLink></div></div></section>;
 }
 
 const processSteps = [
   ["提交直接報名需求", "填寫大致的學校、課程、出發時間與聯絡資料。"],
   ["確認資格與方案", "哩來會確認你的條件、合作範圍、學校名額及報名可行性。"],
   ["簡短核對必要細節", "我們會透過 LINE 或 Email 確認學校、課程、日期與付款相關資訊。此階段不包含完整選校諮詢。"],
-  ["7 日內完成訂金", "收到付款通知後，在指定期限內完成付款，訂金由 NT$6,000 優惠為 NT$3,000。"],
+  [`${DIRECT_APPLICATION_TERMS.promoDeadlineDays} 日內完成訂金`, `收到付款通知後，在指定期限內完成付款，訂金由 ${formatTwd(DIRECT_APPLICATION_TERMS.standardDepositTwd)} 優惠為 ${formatTwd(DIRECT_APPLICATION_TERMS.promoDepositTwd)}。`],
   ["正式啟動報名服務", "完成語校申請、校方付款、入學文件與行前準備。學生正式抵達並開課後，訂金依約退還。"],
 ];
 
@@ -295,17 +265,17 @@ export function ApplicationProcess() {
 const agreementTexts = [
   "我已大致確認想報名的學校、課程或方案，並了解訂金付款前的直接報名確認，不包含多間語校比較、城市分析、完整預算規劃或個人化選校諮詢。",
   "我了解提交此表單不代表正式報名成立，哩來將先確認資格、學校名額與方案可行性。",
-  "我了解通過確認後，將收到訂金付款通知；於通知所載期限內完成付款，訂金由原價 NT$6,000 優惠為 NT$3,000，逾期則恢復為 NT$6,000。",
+  `我了解通過確認後，將收到訂金付款通知；於通知所載期限內完成付款，訂金由原價 ${formatTwd(DIRECT_APPLICATION_TERMS.standardDepositTwd)} 優惠為 ${formatTwd(DIRECT_APPLICATION_TERMS.promoDepositTwd)}，逾期則恢復為 ${formatTwd(DIRECT_APPLICATION_TERMS.standardDepositTwd)}。`,
   "我了解完成訂金付款後，哩來才會正式啟動語校報名與後續服務。",
   "我了解訂金將於我正式抵達愛爾蘭並開始就讀已報名課程後，依正式報名條款所載條件、方式與時間退還。",
-  "我同意哩來愛爾蘭依隱私權政策處理本次報名所需資料。",
+  <>我已閱讀並同意<a href={BRAND_LINKS.privacy} target="_blank" rel="noopener noreferrer">《隱私權政策》</a>，並同意哩來愛爾蘭處理本次報名所需資料。</>,
 ];
 const consultationAgreementTexts = [
   "我了解提交此表單是登記一對一語校諮詢需求，不代表預約已完成，也不會立即產生付款。",
   "我了解哩來會先檢視我的需求，並透過 Email 聯絡後續可預約方式、時間與付款資訊。",
-  "我同意哩來愛爾蘭依隱私權政策處理本次諮詢所需資料。",
+  <>我已閱讀並同意<a href={BRAND_LINKS.privacy} target="_blank" rel="noopener noreferrer">《隱私權政策》</a>，並同意哩來愛爾蘭處理本次諮詢所需資料。</>,
 ];
-const isicAgreement = "我了解 ISIC 國際學生證為選擇直接報名語校、不使用一對一選校諮詢者的加贈項目，仍須符合 ISIC 全日制學生資格並提供官方要求的在學證明、身分與照片等文件；最終是否核發依 ISIC 審核結果為準。";
+const isicAgreement = "我了解選擇直接報名語校、且未使用一對一選校諮詢者，哩來將 ISIC 國際學生證申請列為本次報名贈禮之一；最終是否符合申請資格及是否核發，仍須依 ISIC 官方全日制學生資格、在學證明、身分文件、照片及其他官方要求完成審核。";
 
 type Errors = Record<string, string>;
 const requiredByStep: Record<DirectApplicationFormData["serviceType"], Record<number, string[]>> = {
@@ -317,7 +287,7 @@ function Field({ label, name, required, error, children, hint }: { label: string
   return <div className={cn("field", error && "field-error")}><label htmlFor={name}>{label}{required && <span aria-hidden="true">＊</span>}</label>{children}{hint && <small>{hint}</small>}{error && <p className="error-text" id={`${name}-error`} role="alert">{error}</p>}</div>;
 }
 
-export function SuccessState({ isicEligible, serviceType }: { isicEligible: boolean; serviceType: DirectApplicationFormData["serviceType"] }) {
+export function SuccessState({ isicOfferIncluded, serviceType }: { isicOfferIncluded: boolean; serviceType: DirectApplicationFormData["serviceType"] }) {
   if (serviceType === "consultation") return <div className="success-panel" role="status"><div className="success-icon"><CheckCircle2 size={38} /></div><span className="eyebrow">諮詢需求已成功送出</span><h2>已收到你的一對一諮詢需求</h2><p>即使你還沒決定城市、語校或課程也沒關係。哩來會先閱讀你的需求，再透過 Email 聯絡適合的下一步。</p><ol className="success-steps">{[
     ["檢視你的需求", "我們會先了解你的出發方向、預算與最想解決的問題。"],
     ["Email 聯絡", "哩來會寄送後續可預約方式、時段與付款資訊。"],
@@ -326,9 +296,9 @@ export function SuccessState({ isicEligible, serviceType }: { isicEligible: bool
   return <div className="success-panel" role="status"><div className="success-icon"><CheckCircle2 size={38} /></div><span className="eyebrow">需求已成功送出</span><h2>已收到你的直接報名需求</h2><p>感謝你提交資料。哩來會先確認你選擇的學校、課程、預計入學時間與基本報名條件。</p><ol className="success-steps">{[
     ["資格與方案確認", "我們會檢查資料、合作範圍與學校名額。"],
     ["簡短細節核對", "若有尚未確認的必要資訊，我們會透過 LINE 或 Email 與你聯絡。"],
-    ["收到付款通知", "通過確認後，我們會透過 Email 寄送 NT$6,000 訂金通知與明確優惠截止日期。"],
-    ["7 日內完成付款", "於付款通知所載期限內完成付款，訂金優惠為 NT$3,000，完成後正式啟動報名服務。"],
-  ].map(([title, text], index) => <li key={title}><span>{index + 1}</span><div><strong>{title}</strong><p>{text}</p></div></li>)}</ol><div className="reminder"><Mail size={20} />請留意 Email、LINE 與垃圾郵件匣。</div>{isicEligible && <div className="isic-success"><BadgeCheck size={25} /><div><strong>你目前初步符合 ISIC 國際學生證活動範圍</strong><p>完成直接報名後，哩來會再說明 ISIC 所需文件；最終仍須符合全日制學生資格並通過 ISIC 審核。</p></div></div>}<div className="success-actions"><a href={websiteUrl} className="button button-primary">返回哩來愛爾蘭官網</a><TrackedLink href={consultationUrl} event="consultation_redirect_click" className="button button-secondary">查看一對一語校諮詢</TrackedLink></div></div>;
+    ["收到付款通知", "通過資格確認後，我們會透過 Email 寄送訂金付款通知與明確優惠截止日期。"],
+    [`${DIRECT_APPLICATION_TERMS.promoDeadlineDays} 日內完成付款`, `於付款通知所載期限內完成付款，應付訂金為 ${formatTwd(DIRECT_APPLICATION_TERMS.promoDepositTwd)}；逾期則恢復為 ${formatTwd(DIRECT_APPLICATION_TERMS.standardDepositTwd)}，且學校名額、價格與方案需重新確認。`],
+  ].map(([title, text], index) => <li key={title}><span>{index + 1}</span><div><strong>{title}</strong><p>{text}</p></div></li>)}</ol><div className="reminder"><Mail size={20} />請留意 Email、LINE 與垃圾郵件匣。</div>{isicOfferIncluded && <div className="isic-success"><BadgeCheck size={25} /><div><strong>你的直接報名方案包含 ISIC 國際學生證申請贈禮</strong><p>完成正式報名後，哩來會再提供 ISIC 所需文件說明；最終核發仍須依 ISIC 官方資格與文件審核結果為準。</p></div></div>}<div className="success-actions"><a href={websiteUrl} className="button button-primary">返回哩來愛爾蘭官網</a><TrackedLink href={consultationUrl} event="consultation_redirect_click" intent="consultation" className="button button-secondary">查看一對一語校諮詢</TrackedLink></div></div>;
 }
 
 export function MultiStepApplicationForm() {
@@ -339,7 +309,7 @@ export function MultiStepApplicationForm() {
   const [submitted, setSubmitted] = useState(false);
 
   const isConsultation = form.serviceType === "consultation";
-  const isicEligible = form.serviceType === "direct_application";
+  const isicOfferIncluded = form.serviceType === "direct_application";
   const schoolOptions = getSchoolOptionsForCity(form.preferredCity);
   const chooseServiceType = (intent: DirectApplicationFormData["serviceType"]) => {
     setSubmitted(false);
@@ -371,7 +341,7 @@ export function MultiStepApplicationForm() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const initialIntent = params.get("intent") === "consultation" ? "consultation" : "direct_application";
-    setForm((current) => ({ ...current, serviceType: initialIntent, preferredCity: initialIntent === "consultation" ? "尚未確定" : current.preferredCity, preferredSchool: initialIntent === "consultation" ? "尚未確定" : current.preferredSchool, courseType: initialIntent === "consultation" ? "尚未確定／希望諮詢" : current.courseType, expectedStartMonth: initialIntent === "consultation" ? "尚未確定" : current.expectedStartMonth, courseDuration: initialIntent === "consultation" ? "尚未確定" : current.courseDuration, decisionStage: initialIntent === "consultation" ? "我需要一對一語校諮詢" : current.decisionStage, utmSource: params.get("utm_source") ?? "", utmMedium: params.get("utm_medium") ?? "", utmCampaign: params.get("utm_campaign") ?? "", utmContent: params.get("utm_content") ?? "", utmTerm: params.get("utm_term") ?? "", gclid: params.get("gclid") ?? "", landingPageUrl: window.location.href }));
+    setForm((current) => ({ ...current, serviceType: initialIntent, preferredCity: initialIntent === "consultation" ? "尚未確定" : current.preferredCity, preferredSchool: initialIntent === "consultation" ? "尚未確定" : current.preferredSchool, courseType: initialIntent === "consultation" ? "尚未確定／希望諮詢" : current.courseType, expectedStartMonth: initialIntent === "consultation" ? "尚未確定" : current.expectedStartMonth, courseDuration: initialIntent === "consultation" ? "尚未確定" : current.courseDuration, decisionStage: initialIntent === "consultation" ? "我需要一對一語校諮詢" : current.decisionStage, utmSource: params.get("utm_source") ?? "", utmMedium: params.get("utm_medium") ?? "", utmCampaign: params.get("utm_campaign") ?? "", utmContent: params.get("utm_content") ?? "", utmTerm: params.get("utm_term") ?? "", gclid: params.get("gclid") ?? "", landingPageUrl: `${window.location.origin}${window.location.pathname}` }));
     const handleIntent = (event: Event) => chooseServiceType((event as CustomEvent<{ intent: DirectApplicationFormData["serviceType"] }>).detail.intent);
     const handleAccommodationIntent = () => {
       setSubmitted(false);
@@ -392,7 +362,7 @@ export function MultiStepApplicationForm() {
       window.removeEventListener("lilai-accommodation-intent", handleAccommodationIntent);
     };
   }, []);
-  useEffect(() => { setForm((current) => ({ ...current, isicInitiallyEligible: isicEligible })); }, [isicEligible]);
+  useEffect(() => { setForm((current) => ({ ...current, isicInitiallyEligible: isicOfferIncluded })); }, [isicOfferIncluded]);
   useEffect(() => {
     if (isConsultation || !form.preferredSchool || getSchoolOptionsForCity(form.preferredCity).includes(form.preferredSchool)) return;
     setForm((current) => ({ ...current, preferredSchool: "", customSchool: "" }));
@@ -416,7 +386,7 @@ export function MultiStepApplicationForm() {
     if (currentStep === 2 && form.accommodationNeeded && form.accommodationNeeded !== "不需要" && !form.partnerAccommodationInterest.trim()) nextErrors.partnerAccommodationInterest = "請完成此欄位";
     if (currentStep === 3) {
       (isConsultation ? consultationAgreementTexts : agreementTexts).forEach((_, index) => { if (!form.agreements[`agreement-${index}`]) nextErrors[`agreement-${index}`] = "請勾選確認"; });
-      if (isicEligible && !form.agreements.isic) nextErrors.isic = "請勾選確認";
+      if (isicOfferIncluded && !form.agreements.isic) nextErrors.isic = "請勾選確認";
     }
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
@@ -424,24 +394,24 @@ export function MultiStepApplicationForm() {
   const nextStep = () => {
     if (!validate(step)) return;
     trackEvent(isConsultation ? `consultation_step_${step}_complete` : `direct_application_step_${step}_complete`, {}, `${form.serviceType}-form-step-${step}`);
-    if (step === 2 && isicEligible) trackEvent("direct_application_isic_activity_selected", { course: form.courseType }, `isic-activity:${form.courseType}`);
+    if (step === 2 && isicOfferIncluded) trackEvent("direct_application_isic_activity_selected", { course: form.courseType }, `isic-activity:${form.courseType}`);
     setStep((current) => current + 1); document.getElementById("direct-application-form")?.scrollIntoView({ block: "start" });
   };
   const submit = async (event: FormEvent) => {
     event.preventDefault(); if (!validate(3)) return; setSubmitting(true); setErrors((current) => ({ ...current, submit: "" }));
-    try { await submitDirectApplication({ ...form, isicInitiallyEligible: isicEligible }); trackEvent(isConsultation ? "consultation_request_submit" : "direct_application_submit", { isicInitiallyEligible: isicEligible }); setSubmitted(true); }
+    try { const readiness = evaluateDirectApplicationReadiness(form); const payload = sanitizeApplicationPayload(form); await submitDirectApplication(payload); trackEvent(isConsultation ? "consultation_request_submit" : "direct_application_submit", { isicOfferIncluded, requiresConsultationReview: readiness.requiresConsultationReview }); setSubmitted(true); }
     catch (error) { setErrors((current) => ({ ...current, submit: error instanceof Error ? error.message : "報名資料送出失敗，請稍後再試。" })); }
     finally { setSubmitting(false); }
   };
 
-  if (submitted) return <section className="section form-section" id="direct-application-form"><div className="shell form-shell"><SuccessState isicEligible={isicEligible} serviceType={form.serviceType} /></div></section>;
+  if (submitted) return <section className="section form-section" id="direct-application-form"><div className="shell form-shell"><SuccessState isicOfferIncluded={isicOfferIncluded} serviceType={form.serviceType} /></div></section>;
 
   return <section className="section form-section" id="direct-application-form"><div className="shell form-shell"><div className="form-intro"><span className="eyebrow">約 3–5 分鐘完成</span><h2>{isConsultation ? "預約一對一語校諮詢" : "提交直接報名需求"}</h2><p>{isConsultation ? "還不知道該選哪個城市、語校或課程也沒關係。先告訴我們你的方向，哩來會透過 Email 聯絡後續預約方式。" : "現在不需要付款，也不需要上傳護照。通過資格確認後，我們才會與你簡短核對資料並寄送付款通知。"}</p></div><form className="application-form" onSubmit={submit} noValidate>
     <div className="service-type-picker" aria-label="選擇需求類型"><button type="button" className={cn(form.serviceType === "direct_application" && "is-active")} aria-pressed={form.serviceType === "direct_application"} onClick={() => chooseServiceType("direct_application")}><BadgeCheck size={22} /><span><strong>我已大致選好</strong><small>直接報名語校</small></span></button><button type="button" className={cn(form.serviceType === "consultation" && "is-active")} aria-pressed={form.serviceType === "consultation"} onClick={() => chooseServiceType("consultation")}><CircleHelp size={22} /><span><strong>我需要預約一對一諮詢</strong><small>還不確定也可以填</small></span></button></div>
     <div className="progress-wrap" aria-label={`表單進度：第 ${step} 步，共 3 步`}><div className="progress-meta"><span>步驟 {step}／3</span><strong>{["聯絡資料", isConsultation ? "出發方向" : "報名計畫", "確認送出"][step - 1]}</strong></div><div className="progress-bar"><span style={{ width: `${step / 3 * 100}%` }} /></div></div>
-    {step === 1 && <fieldset><legend>你的聯絡資料</legend><div className="privacy-notice" role="note"><ShieldCheck size={20} aria-hidden="true" /><p>您提供的聯絡資訊僅供哩來愛爾蘭就本次報名或諮詢與您聯繫使用。我們將依個人資料保護法妥善處理，不會任意揭露或提供予與本服務無關的第三方。</p></div><div className="field-grid"><Field label="中文姓名" name="chineseName" required error={errors.chineseName}><input id="chineseName" value={form.chineseName} onChange={(e) => update("chineseName", e.target.value)} aria-describedby={errors.chineseName ? "chineseName-error" : undefined} /></Field><Field label="Email" name="email" required error={errors.email}><input id="email" type="email" value={form.email} onChange={(e) => update("email", e.target.value)} inputMode="email" /></Field><Field label="手機號碼" name="phone" required error={errors.phone}><input id="phone" type="tel" value={form.phone} onChange={(e) => update("phone", e.target.value)} inputMode="tel" /></Field><Field label="Instagram ID／LINE ID（選填）" name="lineId" hint="方便後續用你習慣的方式聯絡；未填仍可透過 Email 或手機聯繫"><input id="lineId" value={form.lineId} onChange={(e) => update("lineId", e.target.value)} placeholder="例如：@lilaiireland 或 LINE ID" /></Field><Field label="目前所在地" name="currentLocation" required error={errors.currentLocation}><select id="currentLocation" value={form.currentLocation} onChange={(e) => update("currentLocation", e.target.value)}><option value="">請選擇</option>{["台灣", "愛爾蘭", "其他"].map(option => <option key={option}>{option}</option>)}</select></Field></div></fieldset>}
-    {step === 2 && <fieldset><legend>{isConsultation ? "告訴我們你的出發方向" : "你的語校報名計畫"}</legend>{isConsultation && <div className="consultation-prefill"><CircleHelp size={22} /><div><strong>不用先決定語校</strong><p>已自動將學校標記為「尚未確定」，諮詢時再一起比較。</p></div></div>}<div className="field-grid"><Field label={isConsultation ? "目前偏好的城市" : "想報名的城市"} name="preferredCity" required error={errors.preferredCity}><select id="preferredCity" value={form.preferredCity} onChange={(e) => update("preferredCity", e.target.value)}><option value="">請選擇</option>{["Dublin", "Cork", "Galway", "Limerick", "其他", "尚未確定"].map(option => <option key={option}>{option}</option>)}</select></Field>{!isConsultation && <Field label="想報名的學校" name="preferredSchool" required error={errors.preferredSchool}><select id="preferredSchool" value={form.preferredSchool} onChange={(e) => update("preferredSchool", e.target.value)}><option value="">請選擇</option>{schoolOptions.map(option => <option key={option}>{option}</option>)}</select></Field>}{!isConsultation && form.preferredSchool === "其他指定學校" && <Field label="指定學校名稱" name="customSchool" required error={errors.customSchool}><input id="customSchool" value={form.customSchool} onChange={(e) => update("customSchool", e.target.value)} /></Field>}<Field label={isConsultation ? "目前感興趣的課程" : "課程類型"} name="courseType" required error={errors.courseType}><select id="courseType" value={form.courseType} onChange={(e) => update("courseType", e.target.value)}><option value="">請選擇</option>{courseOptions.filter(option => isConsultation || option.label !== "尚未確定／希望諮詢").map(option => <option key={option.label}>{option.label}</option>)}</select></Field>{isConsultation ? <Field label="預計何時出發" name="expectedStartMonth" required error={errors.expectedStartMonth}><select id="expectedStartMonth" value={form.expectedStartMonth} onChange={(e) => update("expectedStartMonth", e.target.value)}>{["3 個月內", "3–6 個月內", "半年後", "尚未確定"].map(option => <option key={option}>{option}</option>)}</select></Field> : <Field label="預計開課年月" name="expectedStartMonth" required error={errors.expectedStartMonth}><input id="expectedStartMonth" type="month" value={form.expectedStartMonth} onChange={(e) => update("expectedStartMonth", e.target.value)} /></Field>}<Field label={isConsultation ? "目前考慮的就讀週數" : "預計就讀週數"} name="courseDuration" required error={errors.courseDuration}><select id="courseDuration" value={form.courseDuration} onChange={(e) => update("courseDuration", e.target.value)}><option value="">請選擇</option>{["4 週以下", "4–12 週", "13–24 週", "25 週以上", "25+8 課程", "其他", "尚未確定"].map(option => <option key={option}>{option}</option>)}</select></Field><Field label="偏好上課時段" name="classSchedule"><select id="classSchedule" value={form.classSchedule} onChange={(e) => update("classSchedule", e.target.value)}><option value="">請選擇</option>{["上午", "下午", "皆可", "尚未確定"].map(option => <option key={option}>{option}</option>)}</select></Field><Field label="是否需要住宿協助" name="accommodationNeeded" required error={errors.accommodationNeeded}><select id="accommodationNeeded" value={form.accommodationNeeded} onChange={(e) => updateAccommodation(e.target.value)}><option value="">請選擇</option>{["需要", "不需要", "尚未確定"].map(option => <option key={option}>{option}</option>)}</select></Field>{form.accommodationNeeded && form.accommodationNeeded !== "不需要" && <div className="field-full"><Field label="是否想參考哩來合作的 Leevin Stay Hostel／Stay Student？" name="partnerAccommodationInterest" required error={errors.partnerAccommodationInterest} hint="由哩來學長姐依城市、入住期間、房型與當期房況提供合作報價；住宿安排服務費 NT$1,500（原價 NT$2,000）"><select id="partnerAccommodationInterest" value={form.partnerAccommodationInterest} onChange={(e) => update("partnerAccommodationInterest", e.target.value)}><option value="">請選擇</option>{["想參考 Leevin Stay Hostel", "想參考 Leevin Stay Student", "兩者都想了解", "暫時不需要"].map(option => <option key={option}>{option}</option>)}</select></Field></div>}<Field label="是否已取得其他報價" name="quoteStatus"><select id="quoteStatus" value={form.quoteStatus} onChange={(e) => update("quoteStatus", e.target.value)}><option value="">請選擇</option>{["尚未取得", "已由學校取得", "已由其他代辦取得", "曾與哩來聯繫過"].map(option => <option key={option}>{option}</option>)}</select></Field></div>{isicEligible && <div className="eligibility-hint"><BadgeCheck size={22} /><p><strong>你選擇的是直接報名語校</strong>不使用一對一選校諮詢者可加贈 ISIC 國際學生證；報名 25+8 長期課程的學生基本上均適用提出申請，最終仍須符合全日制學生資格並通過文件審核。</p></div>}</fieldset>}
-    {step === 3 && <fieldset><legend>{isConsultation ? "這次最想解決什麼問題？" : "確認你目前的準備進度"}</legend>{isConsultation ? <Field label="選一個最接近你目前需求的選項" name="consultationGoal" required error={errors.consultationGoal}><div className="radio-stack">{["比較城市與生活成本", "比較語校與課程差異", "評估學費、住宿與整體預算", "規劃 25+8 打工遊學", "還不確定，想從頭一起討論"].map(option => <label key={option}><input type="radio" name="consultationGoal" value={option} checked={form.consultationGoal === option} onChange={(e) => update("consultationGoal", e.target.value)} /><span>{option}</span></label>)}</div></Field> : <><Field label="你目前的進度最接近哪一項？" name="decisionStage" required error={errors.decisionStage}><div className="radio-stack">{["我已確認主要學校及課程，可以直接報名", "我大致選好，只需要確認少量細節", "我仍需要完整比較不同學校或城市"].map(option => <label key={option}><input type="radio" name="decisionStage" value={option} checked={form.decisionStage === option} onChange={(e) => update("decisionStage", e.target.value)} /><span>{option}</span></label>)}</div></Field>{form.decisionStage === "我仍需要完整比較不同學校或城市" && <div className="recommendation-card"><CircleHelp size={24} /><div><strong>一對一語校諮詢可能更適合</strong><p>若你仍需要完整比較不同學校、城市或預算，一對一語校諮詢會比直接報名更適合。</p><TrackedLink href={consultationUrl} event="consultation_redirect_from_application_form" className="text-link">改填一對一諮詢需求 <ArrowRight size={16} /></TrackedLink></div></div>}</>}<div className="field-grid"><Field label="預計學費＋住宿預算" name="budgetRange" required error={errors.budgetRange} hint="歐元金額為約數，實際依付款當日匯率為準"><select id="budgetRange" value={form.budgetRange} onChange={(e) => update("budgetRange", e.target.value)}><option value="">請選擇</option>{["NT$150,000 以下（約 €4,100 以下）", "NT$150,000–200,000（約 €4,100–€5,500）", "NT$200,000–250,000（約 €5,500–€6,900）", "NT$250,000–300,000（約 €6,900–€8,300）", "NT$300,000 以上（約 €8,300 以上）", "尚未確認"].map(option => <option key={option}>{option}</option>)}</select></Field><Field label="如何得知哩來愛爾蘭" name="discoverySource"><select id="discoverySource" value={form.discoverySource} onChange={(e) => update("discoverySource", e.target.value)}><option value="">選填</option>{["Google 搜尋", "Instagram", "Threads", "YouTube", "朋友推薦（請朋友私訊我們登記才享推薦好禮）", "說明會", "其他"].map(option => <option key={option}>{option}</option>)}</select></Field><div className="field-full"><Field label={isConsultation ? "還有什麼希望我們先知道？" : "其他希望我們確認的事項"} name="additionalNotes" hint={isConsultation ? "例如：最擔心的問題、偏好的生活方式，或任何尚未確定的地方。" : "請填寫必要的報名細節，不需在此提供護照或其他敏感文件。"}><textarea id="additionalNotes" rows={4} value={form.additionalNotes} onChange={(e) => update("additionalNotes", e.target.value)} /></Field></div></div><div className="agreements"><h3>送出前，請確認以下事項</h3>{(isConsultation ? consultationAgreementTexts : agreementTexts).map((text, index) => { const key = `agreement-${index}`; return <div key={key}><label className="checkbox-row"><input type="checkbox" checked={!!form.agreements[key]} onChange={(e) => { setForm(current => ({ ...current, agreements: { ...current.agreements, [key]: e.target.checked } })); setErrors(current => ({ ...current, [key]: "" })); }} /><span>{text}</span></label>{errors[key] && <p className="error-text">{errors[key]}</p>}</div>; })}{isicEligible && <div className="isic-agreement"><label className="checkbox-row"><input type="checkbox" checked={!!form.agreements.isic} onChange={(e) => { setForm(current => ({ ...current, agreements: { ...current.agreements, isic: e.target.checked } })); if (e.target.checked) trackEvent("isic_eligibility_checkbox_checked"); setErrors(current => ({ ...current, isic: "" })); }} /><span>{isicAgreement}</span></label>{errors.isic && <p className="error-text">{errors.isic}</p>}</div>}</div></fieldset>}
+    {step === 1 && <fieldset><legend>你的聯絡資料</legend><div className="privacy-notice" role="note"><ShieldCheck size={20} aria-hidden="true" /><p>您提供的聯絡資訊僅供哩來愛爾蘭就本次報名或諮詢與您聯繫使用。我們將依個人資料保護法妥善處理，不會任意揭露或提供予與本服務無關的第三方。</p></div><div className="field-grid"><Field label="中文姓名" name="chineseName" required error={errors.chineseName}><input id="chineseName" maxLength={100} value={form.chineseName} onChange={(e) => update("chineseName", e.target.value)} aria-describedby={errors.chineseName ? "chineseName-error" : undefined} /></Field><Field label="Email" name="email" required error={errors.email}><input id="email" type="email" maxLength={254} value={form.email} onChange={(e) => update("email", e.target.value)} inputMode="email" /></Field><Field label="手機號碼" name="phone" required error={errors.phone}><input id="phone" type="tel" maxLength={40} value={form.phone} onChange={(e) => update("phone", e.target.value)} inputMode="tel" /></Field><Field label="Instagram ID／LINE ID（選填）" name="lineId" hint="方便後續用你習慣的方式聯絡；未填仍可透過 Email 或手機聯繫"><input id="lineId" maxLength={100} value={form.lineId} onChange={(e) => update("lineId", e.target.value)} placeholder="例如：@lilaiireland 或 LINE ID" /></Field><Field label="目前所在地" name="currentLocation" required error={errors.currentLocation}><select id="currentLocation" value={form.currentLocation} onChange={(e) => update("currentLocation", e.target.value)}><option value="">請選擇</option>{["台灣", "愛爾蘭", "其他"].map(option => <option key={option}>{option}</option>)}</select></Field></div></fieldset>}
+    {step === 2 && <fieldset><legend>{isConsultation ? "告訴我們你的出發方向" : "你的語校報名計畫"}</legend>{isConsultation && <div className="consultation-prefill"><CircleHelp size={22} /><div><strong>不用先決定語校</strong><p>已自動將學校標記為「尚未確定」，諮詢時再一起比較。</p></div></div>}<div className="field-grid"><Field label={isConsultation ? "目前偏好的城市" : "想報名的城市"} name="preferredCity" required error={errors.preferredCity}><select id="preferredCity" value={form.preferredCity} onChange={(e) => update("preferredCity", e.target.value)}><option value="">請選擇</option>{["Dublin", "Cork", "Galway", "Limerick", "其他", "尚未確定"].map(option => <option key={option}>{option}</option>)}</select></Field>{!isConsultation && <Field label="想報名的學校" name="preferredSchool" required error={errors.preferredSchool}><select id="preferredSchool" value={form.preferredSchool} onChange={(e) => update("preferredSchool", e.target.value)}><option value="">請選擇</option>{schoolOptions.map(option => <option key={option}>{option}</option>)}</select></Field>}{!isConsultation && form.preferredSchool === "其他指定學校" && <Field label="指定學校名稱" name="customSchool" required error={errors.customSchool}><input id="customSchool" maxLength={200} value={form.customSchool} onChange={(e) => update("customSchool", e.target.value)} /></Field>}<Field label={isConsultation ? "目前感興趣的課程" : "課程類型"} name="courseType" required error={errors.courseType}><select id="courseType" value={form.courseType} onChange={(e) => update("courseType", e.target.value)}><option value="">請選擇</option>{courseOptions.filter(option => isConsultation || option.label !== "尚未確定／希望諮詢").map(option => <option key={option.label}>{option.label}</option>)}</select></Field>{isConsultation ? <Field label="預計何時出發" name="expectedStartMonth" required error={errors.expectedStartMonth}><select id="expectedStartMonth" value={form.expectedStartMonth} onChange={(e) => update("expectedStartMonth", e.target.value)}>{["3 個月內", "3–6 個月內", "半年後", "尚未確定"].map(option => <option key={option}>{option}</option>)}</select></Field> : <Field label="預計開課年月" name="expectedStartMonth" required error={errors.expectedStartMonth}><input id="expectedStartMonth" type="month" value={form.expectedStartMonth} onChange={(e) => update("expectedStartMonth", e.target.value)} /></Field>}<Field label={isConsultation ? "目前考慮的就讀週數" : "預計就讀週數"} name="courseDuration" required error={errors.courseDuration}><select id="courseDuration" value={form.courseDuration} onChange={(e) => update("courseDuration", e.target.value)}><option value="">請選擇</option>{["4 週以下", "4–12 週", "13–24 週", "25 週以上", "25+8 課程", "其他", "尚未確定"].map(option => <option key={option}>{option}</option>)}</select></Field><Field label="偏好上課時段" name="classSchedule"><select id="classSchedule" value={form.classSchedule} onChange={(e) => update("classSchedule", e.target.value)}><option value="">請選擇</option>{["上午", "下午", "皆可", "尚未確定"].map(option => <option key={option}>{option}</option>)}</select></Field><Field label="是否需要住宿協助" name="accommodationNeeded" required error={errors.accommodationNeeded}><select id="accommodationNeeded" value={form.accommodationNeeded} onChange={(e) => updateAccommodation(e.target.value)}><option value="">請選擇</option>{["需要", "不需要", "尚未確定"].map(option => <option key={option}>{option}</option>)}</select></Field>{form.accommodationNeeded && form.accommodationNeeded !== "不需要" && <div className="field-full"><Field label="是否想參考哩來合作的 Leevin Stay Hostel／Stay Student？" name="partnerAccommodationInterest" required error={errors.partnerAccommodationInterest} hint={accommodationFeeHint}><select id="partnerAccommodationInterest" value={form.partnerAccommodationInterest} onChange={(e) => update("partnerAccommodationInterest", e.target.value)}><option value="">請選擇</option>{["想參考 Leevin Stay Hostel", "想參考 Leevin Stay Student", "兩者都想了解", "暫時不需要"].map(option => <option key={option}>{option}</option>)}</select></Field></div>}<Field label="是否已取得其他報價" name="quoteStatus"><select id="quoteStatus" value={form.quoteStatus} onChange={(e) => update("quoteStatus", e.target.value)}><option value="">請選擇</option>{["尚未取得", "已由學校取得", "已由其他代辦取得", "曾與哩來聯繫過"].map(option => <option key={option}>{option}</option>)}</select></Field></div>{isicOfferIncluded && <div className="eligibility-hint"><BadgeCheck size={22} /><p><strong>你選擇的是直接報名語校</strong>不使用一對一選校諮詢者可加贈 ISIC 國際學生證；報名 25+8 長期課程的學生基本上均適用提出申請，最終仍須符合全日制學生資格並通過文件審核。</p></div>}</fieldset>}
+    {step === 3 && <fieldset><legend>{isConsultation ? "這次最想解決什麼問題？" : "確認你目前的準備進度"}</legend>{isConsultation ? <Field label="選一個最接近你目前需求的選項" name="consultationGoal" required error={errors.consultationGoal}><div className="radio-stack">{["比較城市與生活成本", "比較語校與課程差異", "評估學費、住宿與整體預算", "規劃 25+8 打工遊學", "還不確定，想從頭一起討論"].map(option => <label key={option}><input type="radio" name="consultationGoal" value={option} checked={form.consultationGoal === option} onChange={(e) => update("consultationGoal", e.target.value)} /><span>{option}</span></label>)}</div></Field> : <><Field label="你目前的進度最接近哪一項？" name="decisionStage" required error={errors.decisionStage}><div className="radio-stack">{["我已確認主要學校及課程，可以直接報名", "我大致選好，只需要確認少量細節", "我仍需要完整比較不同學校或城市"].map(option => <label key={option}><input type="radio" name="decisionStage" value={option} checked={form.decisionStage === option} onChange={(e) => update("decisionStage", e.target.value)} /><span>{option}</span></label>)}</div></Field>{form.decisionStage === "我仍需要完整比較不同學校或城市" && <div className="recommendation-card"><CircleHelp size={24} /><div><strong>一對一語校諮詢可能更適合</strong><p>若你仍需要完整比較不同學校、城市或預算，一對一語校諮詢會比直接報名更適合。</p><TrackedLink href={consultationUrl} event="consultation_redirect_from_application_form" intent="consultation" className="text-link">改填一對一諮詢需求 <ArrowRight size={16} /></TrackedLink></div></div>}</>}<div className="field-grid"><Field label="預計學費＋住宿預算" name="budgetRange" required error={errors.budgetRange} hint="歐元金額為約數，實際依付款當日匯率為準"><select id="budgetRange" value={form.budgetRange} onChange={(e) => update("budgetRange", e.target.value)}><option value="">請選擇</option>{["NT$150,000 以下（約 €4,100 以下）", "NT$150,000–200,000（約 €4,100–€5,500）", "NT$200,000–250,000（約 €5,500–€6,900）", "NT$250,000–300,000（約 €6,900–€8,300）", "NT$300,000 以上（約 €8,300 以上）", "尚未確認"].map(option => <option key={option}>{option}</option>)}</select></Field><Field label="如何得知哩來愛爾蘭" name="discoverySource"><select id="discoverySource" value={form.discoverySource} onChange={(e) => update("discoverySource", e.target.value)}><option value="">選填</option>{["Google 搜尋", "Instagram", "Threads", "YouTube", "朋友推薦（請朋友私訊我們登記才享推薦好禮）", "說明會", "其他"].map(option => <option key={option}>{option}</option>)}</select></Field><div className="field-full"><Field label={isConsultation ? "還有什麼希望我們先知道？" : "其他希望我們確認的事項"} name="additionalNotes" hint={isConsultation ? "例如：最擔心的問題、偏好的生活方式，或任何尚未確定的地方。" : "請填寫必要的報名細節，不需在此提供護照或其他敏感文件。"}><textarea id="additionalNotes" maxLength={2000} rows={4} value={form.additionalNotes} onChange={(e) => update("additionalNotes", e.target.value)} /></Field></div></div><div className="agreements"><h3>送出前，請確認以下事項</h3>{(isConsultation ? consultationAgreementTexts : agreementTexts).map((text, index) => { const key = `agreement-${index}`; return <div key={key}><label className="checkbox-row"><input type="checkbox" checked={!!form.agreements[key]} onChange={(e) => { setForm(current => ({ ...current, agreements: { ...current.agreements, [key]: e.target.checked } })); setErrors(current => ({ ...current, [key]: "" })); }} /><span>{text}</span></label>{errors[key] && <p className="error-text">{errors[key]}</p>}</div>; })}{isicOfferIncluded && <div className="isic-agreement"><label className="checkbox-row"><input type="checkbox" checked={!!form.agreements.isic} onChange={(e) => { setForm(current => ({ ...current, agreements: { ...current.agreements, isic: e.target.checked } })); if (e.target.checked) trackEvent("isic_eligibility_checkbox_checked"); setErrors(current => ({ ...current, isic: "" })); }} /><span>{isicAgreement}</span></label>{errors.isic && <p className="error-text">{errors.isic}</p>}</div>}</div></fieldset>}
     {(["utmSource", "utmMedium", "utmCampaign", "utmContent", "utmTerm", "gclid", "landingPageUrl"] as const).map(name => <input key={name} type="hidden" name={name} value={String(form[name])} />)}
     {errors.submit && <p className="error-text" role="alert">{errors.submit}</p>}
     <div className="form-actions">{step > 1 && <button type="button" className="button button-ghost" onClick={() => setStep(current => current - 1)}>返回上一步</button>}{step < 3 ? <button type="button" className="button button-primary" onClick={nextStep}>下一步 <ArrowRight size={18} /></button> : <div className="submit-wrap"><button type="submit" className="button button-primary button-large" disabled={submitting}>{submitting ? "正在送出…" : isConsultation ? "送出一對一諮詢需求" : "提交直接報名需求"} {!submitting && <ArrowRight size={18} />}</button><small>{isConsultation ? "送出後，哩來會透過 Email 聯絡後續預約方式。" : "送出表單不代表報名成立，也不會立即產生付款。"}</small></div>}</div>
@@ -455,13 +425,6 @@ export function WhyLilaiSection() {
 }
 
 export function AccommodationSupportSection() {
-  const cancellationRows = [
-    ["入住日前 21 天以上", "住宿費全額退還"],
-    ["入住日前 14–21 天", "退還住宿費 50%"],
-    ["入住日前 14 天以內", "住宿費不退"],
-    ["No-show（未通知未到）", "住宿費不退"],
-  ];
-
   return (
     <section className="section accommodation-section" id="accommodation-support">
       <div className="shell">
@@ -474,7 +437,7 @@ export function AccommodationSupportSection() {
           />
           <aside className="accommodation-fee-card" aria-label="Leevin 住宿安排服務費">
             <span>哩來學弟妹住宿安排服務費</span>
-            <div><strong>NT$1,500</strong><s>原價 NT$2,000</s></div>
+            <div><strong>{formatTwd(ACCOMMODATION_TERMS.arrangementFeeTwd)}</strong><s>原價 {formatTwd(ACCOMMODATION_TERMS.arrangementFeeOriginalTwd)}</s></div>
             <p>不另收訂金；此服務費即作為訂房保留與安排費，完成支付後一律不退。</p>
           </aside>
         </div>
@@ -488,7 +451,7 @@ export function AccommodationSupportSection() {
             <div className="accommodation-option-copy">
               <h3>Leevin Stay Hostel</h3>
               <p>以青年旅館房型、公共空間與社交氛圍為主，適合喜歡認識新朋友、享受共用設施與熱鬧住宿體驗的學弟妹。</p>
-              <ul><li><UsersRound size={17} />青年旅館房型與共用公共空間</li><li><MapPin size={17} />依城市、入住期間與房況提供方案</li><li><CheckCircle2 size={17} />最低預約週數：1 週</li><li><BadgeCheck size={17} />入住 4 週以上享長住優惠</li></ul>
+              <ul><li><UsersRound size={17} />青年旅館房型與共用公共空間</li><li><MapPin size={17} />依城市、入住期間與房況提供方案</li><li><CheckCircle2 size={17} />最低預約週數：{LEEVIN_TERMS.hostel.minimumWeeks} 週</li><li><BadgeCheck size={17} />入住 {LEEVIN_TERMS.hostel.longStayDiscountFromWeeks} 週以上享長住優惠</li></ul>
               <a className="accommodation-profile-link" href="https://leevinstay.com/leevin-hostel-dublin/" target="_blank" rel="noreferrer">查看 Stay Hostel 簡介與房型照片 <ArrowRight size={15} /></a>
             </div>
           </article>
@@ -500,7 +463,7 @@ export function AccommodationSupportSection() {
             <div className="accommodation-option-copy">
               <h3>Leevin Stay Student</h3>
               <p>更接近家庭式共居，可使用廚房準備餐食；依房源提供單人、雙人、三人或四人房，適合偏好住宅生活感的學弟妹。</p>
-              <ul><li><Coffee size={17} />可使用廚房，生活方式更接近家庭式共居</li><li><HeartHandshake size={17} />報價已包含 Wi-Fi、帳單與每週清潔，不另收費</li><li><CheckCircle2 size={17} />最低預約週數：4 週</li><li><BadgeCheck size={17} />入住 8 週以上享長住優惠</li></ul>
+              <ul><li><Coffee size={17} />可使用廚房，生活方式更接近家庭式共居</li><li><HeartHandshake size={17} />報價已包含 Wi-Fi、帳單與每週清潔，不另收費</li><li><CheckCircle2 size={17} />最低預約週數：{LEEVIN_TERMS.student.minimumWeeks} 週</li><li><BadgeCheck size={17} />入住 {LEEVIN_TERMS.student.longStayDiscountFromWeeks} 週以上享長住優惠</li></ul>
               <a className="accommodation-profile-link" href="https://leevinstay.com/stay-student/" target="_blank" rel="noreferrer">查看 Stay Student 簡介與房型照片 <ArrowRight size={15} /></a>
             </div>
           </article>
@@ -511,9 +474,9 @@ export function AccommodationSupportSection() {
         <details className="accordion accommodation-terms">
           <summary>取消、退款與延誤規則 <ChevronDown size={20} /></summary>
           <div className="accordion-content">
-            <p className="accommodation-terms-lead">取消時間以 Leevin 實際收到取消通知為準；以下退款比例僅適用住宿費，NT$1,500 住宿安排服務費在任何情況下皆不退。</p>
+            <p className="accommodation-terms-lead">以下為哩來愛爾蘭合作訂房方案之取消與退款規則，與 Leevin 官網散客或其他通路方案可能不同。取消時間以 Leevin 實際收到取消通知為準；以下退款比例僅適用住宿費，{formatTwd(ACCOMMODATION_TERMS.arrangementFeeTwd)} 住宿安排服務費不退。實際仍以學生收到的正式住宿確認文件與報價條款為準。</p>
             <div className="accommodation-refund-grid">
-              {cancellationRows.map(([timing, refund]) => <div key={timing}><strong>{timing}</strong><span>{refund}</span></div>)}
+              {LEEVIN_TERMS.cancellationPolicy.map(([timing, refund]) => <div key={timing}><strong>{timing}</strong><span>{refund}</span></div>)}
             </div>
             <ul className="accommodation-notes">
               <li>Leevin 將退款匯回哩來後，哩來會在 14 個工作天內退還學生；銀行手續費與匯差將自退款金額中扣除。</li>
@@ -524,7 +487,7 @@ export function AccommodationSupportSection() {
         </details>
 
         <div className="accommodation-actions">
-          <TrackedLink href="#direct-application-form" event="accommodation_application_click" className="button button-primary button-large">報名語校並詢問住宿方案 <ArrowRight size={19} /></TrackedLink>
+          <TrackedLink href="#direct-application-form" event="accommodation_application_click" intent="direct_application" accommodationIntent className="button button-primary button-large">報名語校並詢問住宿方案 <ArrowRight size={19} /></TrackedLink>
           <p>按下後會預先勾選需要住宿與 Leevin 方案，完成表單後再由學長姐提供報價及聯絡。</p>
         </div>
       </div>
@@ -617,7 +580,7 @@ export function GiftPackageSection() {
 
         <p className="gift-support-note">實際贈送內容依報名課程長度、當期活動與合作方案為準。AI 英語練功系統的實際正式上線時間與功能內容將依開發進度調整；Lite 的 14 日體驗資格於正式上線後開放使用。</p>
         <div className="gift-support-actions">
-          <TrackedLink href="#direct-application-form" event="gift_direct_application_click" className="button button-primary button-large">直接報名語校 <ArrowRight size={19} /></TrackedLink>
+          <TrackedLink href="#direct-application-form" event="gift_direct_application_click" intent="direct_application" className="button button-primary button-large">直接報名語校 <ArrowRight size={19} /></TrackedLink>
         </div>
       </div>
     </section>
@@ -671,7 +634,7 @@ export function SeminarHighlightsSection() {
               {["25+8 是什麼？適合誰？", "有哪些學英文以外的好處？", "為什麼學長姐、學弟妹都超推！"].map((item) => <li key={item}><CheckCircle2 size={21} aria-hidden="true" /><span>{item}</span></li>)}
             </ul>
             <button type="button" className="button button-secondary seminar-video-cta" onClick={playVideo}>看說明會精華片段 <Play size={17} aria-hidden="true" /></button>
-            <TrackedLink href="/free-departure-assessment" event="seminar_free_assessment_click" className="text-link">免費出發評估 <ArrowRight size={16} /></TrackedLink>
+            <TrackedLink href={assessmentUrl} event="seminar_free_assessment_click" className="text-link">免費出發評估 <ArrowRight size={16} /></TrackedLink>
           </div>
         </div>
       </div>
@@ -690,6 +653,7 @@ export function TestimonialsSection() {
 
     let frame = 0;
     let paused = false;
+    let inViewport = false;
     let lastFrame = performance.now();
     let resumeTimer = 0;
     const pause = () => { paused = true; };
@@ -698,7 +662,7 @@ export function TestimonialsSection() {
     const tick = (now: number) => {
       const delta = Math.min(now - lastFrame, 64);
       lastFrame = now;
-      if (!paused && now >= pauseUntilRef.current) {
+      if (!paused && inViewport && !document.hidden && now >= pauseUntilRef.current) {
         row.scrollLeft += delta * 0.03;
         const resetPoint = row.querySelector<HTMLElement>(".testimonial-group")?.offsetWidth ?? 0;
         if (resetPoint > 0 && row.scrollLeft >= resetPoint) row.scrollLeft -= resetPoint;
@@ -712,11 +676,20 @@ export function TestimonialsSection() {
     row.addEventListener("focusout", resume);
     row.addEventListener("touchstart", pause, { passive: true });
     row.addEventListener("touchend", resumeAfterTouch, { passive: true });
+    const observer = new IntersectionObserver(([entry]) => {
+      inViewport = entry.isIntersecting;
+      lastFrame = performance.now();
+    }, { threshold: 0.1 });
+    observer.observe(row);
+    const handleVisibility = () => { lastFrame = performance.now(); };
+    document.addEventListener("visibilitychange", handleVisibility);
     frame = window.requestAnimationFrame(tick);
 
     return () => {
       window.cancelAnimationFrame(frame);
       window.clearTimeout(resumeTimer);
+      observer.disconnect();
+      document.removeEventListener("visibilitychange", handleVisibility);
       row.removeEventListener("mouseenter", pause);
       row.removeEventListener("mouseleave", resume);
       row.removeEventListener("focusin", pause);
@@ -754,21 +727,21 @@ const faqs = [
   ["我還有一些問題，也可以直接報名嗎？", "可以。直接報名不代表完全不能詢問，而是適合已大致確認學校與方案的人。完成訂金後，哩來仍會協助處理申請、文件、付款、開課與行前流程中的必要問題。"],
   ["直接報名和一對一諮詢有什麼不同？", "直接報名適合已完成主要選擇的人，且不使用一對一選校諮詢者才會加贈 ISIC 國際學生證；一對一諮詢則適合仍需要比較城市、學校、課程與預算的人。"],
   ["提交表單後就需要付款嗎？", "不需要。哩來會先確認你的條件、學校名額與方案可行性，通過確認後才會寄送付款通知。"],
-  ["七日訂金半價如何計算？", "以付款通知中標示的截止日期為準。在期限內完成付款，訂金由 NT$6,000 優惠為 NT$3,000。"],
+  [`${DIRECT_APPLICATION_TERMS.promoDeadlineDays} 日訂金半價如何計算？`, `以付款通知中標示的截止日期為準。在期限內完成付款，訂金由 ${formatTwd(DIRECT_APPLICATION_TERMS.standardDepositTwd)} 優惠為 ${formatTwd(DIRECT_APPLICATION_TERMS.promoDepositTwd)}。`],
   ["訂金什麼時候退還？", "當學生正式抵達愛爾蘭並開始就讀已報名課程後，將依正式報名條款所載方式與時間退還。"],
-  ["超過七日才付款會怎樣？", "訂金將恢復為 NT$6,000，學校名額、價格與方案亦需依當時最新狀況重新確認。"],
+  [`超過 ${DIRECT_APPLICATION_TERMS.promoDeadlineDays} 日才付款會怎樣？`, `訂金將恢復為 ${formatTwd(DIRECT_APPLICATION_TERMS.standardDepositTwd)}，學校名額、價格與方案亦需依當時最新狀況重新確認。`],
   ["ISIC 國際學生證適用哪些人？", "本活動適用選擇直接報名語校、不使用一對一選校諮詢，且符合 ISIC 全日制學生資格的學弟妹。報名 25+8 長期課程的學生基本上均適用提出申請；申辦時仍須依官方要求提供在學證明、身分證明與合適照片，最終是否核發依 ISIC 文件審核結果為準。"],
   ["ISIC 國際學生證可以怎麼使用？", "標準 ISIC 卡效期為 12 個月，可透過 ISIC App 使用數位學生證並查看全球優惠。例如 Mad Egg 20% 折扣、Adidas 指定商品 15% 折扣、FlixBus 車票優惠、IMC 電影套票，以及 Guinness Storehouse 等景點優惠；實際優惠與使用條件以 ISIC Ireland 當期公告為準。"],
   ["直接報名會比透過諮詢少服務嗎？", "不會影響正式報名後的申請、文件、付款與行前支援。差別只在於直接報名不包含訂金付款前的完整選校分析。"],
 ];
 export function FAQAccordion() { return <section className="section section-tint" id="faq"><div className="shell narrow-shell"><SectionHeading title="常見問題" subtitle="把付款、服務範圍與贈禮條件一次說清楚。" /><div className="faq-list">{faqs.map(([question, answer], index) => <details className="accordion" key={question} onToggle={(e) => { if (e.currentTarget.open) trackEvent("faq_open", { question }, `faq-${index}`); }}><summary>{question}<ChevronDown size={20} /></summary><div className="accordion-content"><p>{answer}</p></div></details>)}</div></div></section>; }
 
-export function FinalCTA() { return <section className="final-cta"><div className="shell final-inner"><div><span className="eyebrow eyebrow-light">下一站，愛爾蘭</span><h2>已經做好前期研究，<br />就直接往下一步走吧</h2><p>先提交報名需求，確認資格後再付款。7 日內完成訂金享半價；選擇直接報名、不使用一對一選校諮詢並通過官方資格審核，再加贈 ISIC 國際學生證。</p></div><div className="final-actions"><TrackedLink href="#direct-application-form" event="direct_application_start" className="button button-light button-large">提交直接報名需求 <ArrowRight size={19} /></TrackedLink><TrackedLink href={consultationUrl} event="consultation_redirect_click" className="button button-outline-light">我還需要一對一選校協助</TrackedLink><TrackedLink href={assessmentUrl} event="free_assessment_click" className="light-link">還在探索階段？免費完成階段評估</TrackedLink></div></div></section>; }
+export function FinalCTA() { return <section className="final-cta"><div className="shell final-inner"><div><span className="eyebrow eyebrow-light">下一站，愛爾蘭</span><h2>已經做好前期研究，<br />就直接往下一步走吧</h2><p>先提交報名需求，確認資格後再付款。{DIRECT_APPLICATION_TERMS.promoDeadlineDays} 日內完成訂金享半價；選擇直接報名且未使用一對一選校諮詢者，方案包含 ISIC 國際學生證申請贈禮，最終核發仍須依官方資格與文件審核結果為準。</p></div><div className="final-actions"><TrackedLink href="#direct-application-form" event="direct_application_start" intent="direct_application" className="button button-light button-large">提交直接報名需求 <ArrowRight size={19} /></TrackedLink><TrackedLink href={consultationUrl} event="consultation_redirect_click" intent="consultation" className="button button-outline-light">我還需要一對一選校協助</TrackedLink><TrackedLink href={assessmentUrl} event="free_assessment_click" className="light-link">還在探索階段？免費完成階段評估</TrackedLink></div></div></section>; }
 
-export function StickyMobileCTA() { return <div className="sticky-mobile-cta"><TrackedLink href="#direct-application-form" event="direct_application_start" className="button button-primary">直接開始報名</TrackedLink><TrackedLink href={consultationUrl} event="consultation_redirect_click" className="sticky-text">需要選校協助？</TrackedLink></div>; }
+export function StickyMobileCTA() { return <div className="sticky-mobile-cta"><TrackedLink href="#direct-application-form" event="direct_application_start" intent="direct_application" className="button button-primary">直接開始報名</TrackedLink><TrackedLink href={consultationUrl} event="consultation_redirect_click" intent="consultation" className="sticky-text">需要選校協助？</TrackedLink></div>; }
 
-export function LandingFooter() { return <footer className="footer"><div className="shell footer-grid"><div><Logo inverse /><p>一起把夢，過成生活 ☘️</p><small>營運單位：築夢愛爾國際留遊學<br />統一編號：00853881</small></div><div><strong>開始規劃</strong><a href={websiteUrl}>返回官網</a><TrackedLink href={assessmentUrl} event="free_assessment_click">免費出發評估</TrackedLink><TrackedLink href={consultationUrl} event="consultation_redirect_click">一對一語校諮詢</TrackedLink></div><div><strong>相關政策</strong><a href="https://lilaiireland.com/agreement/" target="_blank" rel="noopener noreferrer">隱私權政策</a></div><div><strong>聯絡我們</strong><nav className="footer-social-links" aria-label="社群與聯絡方式"><a href="https://www.instagram.com/lilaiireland/" target="_blank" rel="noopener noreferrer" aria-label="Instagram" title="Instagram"><Camera aria-hidden="true" /></a><a href="https://www.threads.com/@lilaiireland?xmt=AQG0O09cRB2uGgzJjsVy8TdFipQQ_ARZ4-X4b23ZfY7Hmk0" target="_blank" rel="noopener noreferrer" aria-label="Threads" title="Threads"><AtSign aria-hidden="true" /></a><a href="https://www.youtube.com/@%E5%93%A9%E4%BE%86%E6%84%9B%E7%88%BE%E8%98%AD" target="_blank" rel="noopener noreferrer" aria-label="YouTube" title="YouTube"><PlaySquare aria-hidden="true" /></a><a href="mailto:lilaiireland@gmail.com" aria-label="Email：lilaiireland@gmail.com" title="lilaiireland@gmail.com"><Mail aria-hidden="true" /></a></nav></div></div><div className="shell footer-bottom"><span>© {new Date().getFullYear()} 哩來愛爾蘭 Lilai Ireland</span><span>本頁資訊以正式報名條款為準</span></div></footer>; }
+export function LandingFooter() { return <footer className="footer"><div className="shell footer-grid"><div><Logo inverse /><p>一起把夢，過成生活 ☘️</p><small>營運單位：築夢愛爾國際留遊學<br />統一編號：00853881</small></div><div><strong>開始規劃</strong><a href={BRAND_LINKS.website}>返回官網</a><TrackedLink href={BRAND_LINKS.assessment} event="free_assessment_click">免費出發評估</TrackedLink><TrackedLink href={BRAND_LINKS.consultation} event="consultation_redirect_click" intent="consultation">一對一語校諮詢</TrackedLink></div><div><strong>相關政策</strong><a href={BRAND_LINKS.privacy} target="_blank" rel="noopener noreferrer">隱私權政策</a></div><div><strong>聯絡我們</strong><nav className="footer-social-links" aria-label="社群與聯絡方式"><a href={BRAND_LINKS.instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram" title="Instagram"><Camera aria-hidden="true" /></a><a href={BRAND_LINKS.threads} target="_blank" rel="noopener noreferrer" aria-label="Threads" title="Threads"><AtSign aria-hidden="true" /></a><a href={BRAND_LINKS.youtube} target="_blank" rel="noopener noreferrer" aria-label="YouTube" title="YouTube"><PlaySquare aria-hidden="true" /></a><a href="mailto:lilaiireland@gmail.com" aria-label="Email：lilaiireland@gmail.com" title="lilaiireland@gmail.com"><Mail aria-hidden="true" /></a></nav></div></div><div className="shell footer-bottom"><span>© {new Date().getFullYear()} 哩來愛爾蘭 Lilai Ireland</span><span>本頁資訊以正式報名條款為準</span></div></footer>; }
 
 export default function Home() {
-  return <><RevealController /><LandingHeader /><main><HeroSection /><DirectApplicationOffer /><PartnerSchoolSection /><ServicePathComparison /><ApplicationProcess /><WhyLilaiSection /><AccommodationSupportSection /><GiftPackageSection /><SeminarHighlightsSection /><MultiStepApplicationForm /><BrandProofSection /><TestimonialsSection /><FAQAccordion /><FinalCTA /></main><LandingFooter /><StickyMobileCTA /></>;
+  return <><RevealController /><LandingHeader /><main><HeroSection /><AudienceQualificationSection /><DirectApplicationOffer /><PartnerSchoolSection /><ServicePathComparison /><ServiceBoundarySection /><ApplicationProcess /><WhyLilaiSection /><AccommodationSupportSection /><GiftPackageSection /><SeminarHighlightsSection /><MultiStepApplicationForm /><BrandProofSection /><TestimonialsSection /><FAQAccordion /><FinalCTA /></main><LandingFooter /><StickyMobileCTA /></>;
 }

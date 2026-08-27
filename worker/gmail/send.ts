@@ -1,5 +1,9 @@
 import type { ApplicationRow, IntegrationJobType } from "../shared/types.ts";
 import { IntegrationError } from "../queue/integration-error.ts";
+import { mapApplicationToStudentEmailData } from "../email/application-email-mapper.ts";
+import { SENDER_DISPLAY_NAME } from "../email/email-constants.ts";
+import { renderInternalNotificationEmail } from "../email/templates/internal-notification.ts";
+import { renderStudentConfirmationEmail } from "../email/templates/student-confirmation.ts";
 import { getGmailAccessToken, type HttpFetch } from "./oauth.ts";
 
 const encoder = new TextEncoder();
@@ -19,34 +23,20 @@ export function encodeBase64Url(value: string): string {
   return base64(encoder.encode(value)).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
 }
 
-function escapeHtml(value: string): string {
-  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
-}
-
 function emailContent(application: ApplicationRow, jobType: IntegrationJobType, env: Cloudflare.Env) {
-  const direct = application.service_type === "direct_application";
   if (jobType === "student_email") {
-    const subject = direct ? "哩來已收到你的愛爾蘭語校報名" : "哩來已收到你的一對一諮詢需求";
-    const text = `你好 ${application.chinese_name}，\n\n我們已收到你的${direct ? "語校報名" : "諮詢需求"}。\n申請編號：${application.reference_code}\n預計出發：${application.expected_start_month}\n城市：${application.preferred_city}\n\n我們會盡快與你聯絡。`;
-    return { to: application.email, subject, text };
+    return { to: application.email, ...renderStudentConfirmationEmail(mapApplicationToStudentEmailData(application)) };
   }
-  const subject = direct
-    ? `[網站新名單] 直接報名｜${application.chinese_name}｜${application.preferred_city}｜${application.preferred_school}`
-    : `[網站新名單] 一對一諮詢｜${application.chinese_name}｜${application.preferred_city}`;
-  const text = `申請編號：${application.reference_code}\n服務：${application.service_type}\n姓名：${application.chinese_name}\nEmail：${application.email}\n電話：${application.phone}\nLINE：${application.line_id}\n城市：${application.preferred_city}\n學校：${application.preferred_school || application.custom_school}\n課程：${application.course_type}\n預計出發：${application.expected_start_month}\n課程長度：${application.course_duration}\n預算：${application.budget_range}`;
-  return { to: env.INTERNAL_NOTIFICATION_EMAIL, subject, text };
+  return { to: env.INTERNAL_NOTIFICATION_EMAIL, ...renderInternalNotificationEmail(application) };
 }
 
-export function buildMimeMessage(to: string, subject: string, text: string, sender: string, replyTo: string): string {
+export function buildMimeMessage(to: string, subject: string, text: string, sender: string, replyTo: string, html = ""): string {
   const boundary = `lilai-${crypto.randomUUID()}`;
-  const html = `<div style="font-family:sans-serif;white-space:pre-line">${escapeHtml(text)}</div>`;
-  const senderNameHeader = encodeMimeHeader("哩來愛爾蘭");
-  const subjectHeader = encodeMimeHeader(subject);
   return [
-    `From: ${senderNameHeader} <${sender}>`, `To: ${to}`, `Reply-To: ${replyTo}`,
-    `Subject: ${subjectHeader}`, "MIME-Version: 1.0", `Content-Type: multipart/alternative; boundary="${boundary}"`, "",
+    `From: ${encodeMimeHeader(SENDER_DISPLAY_NAME)} <${sender}>`, `To: ${to}`, `Reply-To: ${replyTo}`,
+    `Subject: ${encodeMimeHeader(subject)}`, "MIME-Version: 1.0", `Content-Type: multipart/alternative; boundary="${boundary}"`, "",
     `--${boundary}`, "Content-Type: text/plain; charset=UTF-8", "Content-Transfer-Encoding: base64", "", base64(encoder.encode(text)),
-    `--${boundary}`, "Content-Type: text/html; charset=UTF-8", "Content-Transfer-Encoding: base64", "", base64(encoder.encode(html)),
+    `--${boundary}`, "Content-Type: text/html; charset=UTF-8", "Content-Transfer-Encoding: base64", "", base64(encoder.encode(html || `<div>${text}</div>`)),
     `--${boundary}--`, "",
   ].join("\r\n");
 }
@@ -62,7 +52,6 @@ export async function sendGmailMessage(raw: string, accessToken: string, fetcher
   } catch {
     throw new IntegrationError("Gmail send network request failed", true);
   }
-
   let payload: { id?: unknown };
   try {
     payload = await response.json();
@@ -76,21 +65,10 @@ export async function sendGmailMessage(raw: string, accessToken: string, fetcher
   return payload.id;
 }
 
-export async function sendApplicationEmail(
-  application: ApplicationRow,
-  jobType: "student_email" | "internal_email",
-  env: Cloudflare.Env,
-  fetcher: HttpFetch = fetch,
-): Promise<string> {
-  if (env.GMAIL_SENDER_EMAIL !== EXPECTED_GMAIL_SENDER) {
-    throw new IntegrationError("Gmail sender email is misconfigured", false);
-  }
-  const accessToken = await getGmailAccessToken({
-    clientId: env.GMAIL_CLIENT_ID,
-    clientSecret: env.GMAIL_CLIENT_SECRET,
-    refreshToken: env.GMAIL_REFRESH_TOKEN,
-  }, fetcher);
+export async function sendApplicationEmail(application: ApplicationRow, jobType: "student_email" | "internal_email", env: Cloudflare.Env, fetcher: HttpFetch = fetch): Promise<string> {
+  if (env.GMAIL_SENDER_EMAIL !== EXPECTED_GMAIL_SENDER) throw new IntegrationError("Gmail sender email is misconfigured", false);
+  const accessToken = await getGmailAccessToken({ clientId: env.GMAIL_CLIENT_ID, clientSecret: env.GMAIL_CLIENT_SECRET, refreshToken: env.GMAIL_REFRESH_TOKEN }, fetcher);
   const content = emailContent(application, jobType, env);
-  const mime = buildMimeMessage(content.to, content.subject, content.text, env.GMAIL_SENDER_EMAIL, env.EMAIL_REPLY_TO);
+  const mime = buildMimeMessage(content.to, content.subject, content.text, env.GMAIL_SENDER_EMAIL, env.EMAIL_REPLY_TO, content.html);
   return sendGmailMessage(encodeBase64Url(mime), accessToken, fetcher);
 }

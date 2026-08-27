@@ -21,7 +21,7 @@
 - 正式網站仍由 WordPress 提供；Worker 只在 workers.dev 測試。
 - D1 報名後端已完成並部署；`POST /api/applications` 已通過 production D1 E2E。
 - Git：目前位於 `feat/frontend-review-carousel`，包含本輪前端 UX、表單、動態效果與 Google 評論輪播更新；尚未合併到 `main`。
-- Integration consumer 已部署至 workers.dev；正式 Queue producer／consumer 與 Cron 已啟用。Gmail OAuth 寄信、Notion 同步及既有 pending jobs 均已在線上成功完成。
+- Integration consumer 已部署至 workers.dev；正式 Queue producer／consumer 與 Cron 已啟用。學生確認信已依「一對一諮詢／直接報名」分流為品牌 HTML 與 plain-text 版本；Gmail OAuth 寄信、Notion 同步及既有 pending jobs 均已在線上成功完成。
 - `ADMIN_API_TOKEN` 已由使用者在 Cloudflare Dashboard 安全輪替；Secret 值未經 Codex、Terminal、Git 或日誌。
 
 ## 不可變更的邊界
@@ -74,14 +74,14 @@
 
 ## 部署基準
 
-最近一次部署：2026-08-27（Readable application reference deployment）
+最近一次部署：2026-08-27（Frontend review adaptation）
 
 - 環境：workers.dev，連接 production D1
 - Worker：`site-creator-vinext-starter`
 - URL：https://site-creator-vinext-starter.lilaiireland.workers.dev
 - API：https://site-creator-vinext-starter.lilaiireland.workers.dev/api/applications
-- Version ID：`eb0cfa98-da5d-4b74-bcd2-58b887efcfa1`（100% traffic）
-- Rollback baseline：`e0880b03-27db-4dc2-bc55-f8cc2ab0266e`
+- Version ID：`be14c334-958d-4c53-9ec8-8a8db4c975ec`（100% traffic）
+- Rollback baseline：`f4c43d42-193e-4ab7-8dd2-cbee11be72b7`
 - 部署前 D1 備份：`backups/pre-reference-code-migration-2026-08-27.sql`（11,403 bytes，僅存本機且已被 Git ignore）
 - 原始 QA checkpoint：`5aa3541a-2cf4-43f7-8f40-73f96c69922f`
 - Production D1：`lilai-applications-production`
@@ -91,6 +91,10 @@
 - Rollback：將 workers.dev traffic 回切 rollback baseline；D1 migration 目前只有 additive table 建立，資料不可透過 Worker rollback 自動移除。
 
 ## 已完成
+
+- 2026-08-27 frontend review 適配版本 workers.dev 發布：使用 Wrangler 4.124.0 與 `dist/server/wrangler.json` 部署至既有 Worker `site-creator-vinext-starter`，URL `https://site-creator-vinext-starter.lilaiireland.workers.dev`，Version ID `be14c334-958d-4c53-9ec8-8a8db4c975ec`（100% traffic），rollback baseline `f4c43d42-193e-4ab7-8dd2-cbee11be72b7`。保留 production D1 `lilai-applications-production`、Queue producer／consumer、Cron 與既有 secrets，未啟用或更動 production custom route。線上 smoke test：首頁 HTTP 200、新的直接報名適用對象及服務邊界內容存在、Erin College 與舊 `free-departure-assessment` URL 均未出現。部署前驗證：frontend review tests 6/6、Gmail／Email tests 13/13、rendered HTML tests 2/2、TypeScript 成功、lint 0 errors／20 個既有 warnings、Wrangler dry-run 與 `git diff --check` 成功；build 五個環境與 prerender 均顯示完成，最後仍有 Windows 既知 libuv assertion。
+- 2026-08-27 frontend review 建議適配與安全修正：完整檢視 `lilai_frontend_review_codex_actions_2026-08-27.md`，在不更動既有 D1 schema、Queue 冪等、Gmail／Notion integration 與 production routing 的前提下，落實可直接適配的 P0／P1 項目。新增品牌連結、商業條款、合作語校單一資料源；Erin College 保留於資料集但標記 review、從畫面與直接報名選項隱藏；統一免費評估 URL；直接報名 readiness 明確允許「城市或學校方向」，完整比較需求導向諮詢；client 與 server 雙層清除非作用模式欄位，landing URL 不保存 query/hash；ISIC 改為「方案含贈送、仍須官方審核」並保留送出確認；隱私政策改為可點擊連結；新增適合／不適合直接報名與服務邊界區塊；評論輪播在離開 viewport 或頁籤隱藏時暫停；internal notification 補上 decision stage／consultation goal。住宿取消比例未自行修改，改集中管理並清楚標示合作方案與正式報價條款優先。新增 frontend business logic／server validation tests；驗證 `test:frontend-review` 6/6、Gmail／Email tests 13/13、rendered HTML tests 2/2、TypeScript 成功、lint 0 errors、Wrangler 4.124.0 dry-run 成功、`git diff --check` 成功；build 已完成所有五個環境與 prerender，最後仍遇既有 Windows libuv assertion。Wrangler debug log 因 sandbox 權限顯示 EPERM，但 dry-run bundle／bindings 檢查完成且 exit 0。未部署，最新 Version ID `f4c43d42-193e-4ab7-8dd2-cbee11be72b7` 與 rollback baseline `eb0cfa98-da5d-4b74-bcd2-58b887efcfa1` 不變。高風險的 `page.tsx` 大型 component 拆分與 server/client boundary 重構刻意延後至獨立分支；`requiresConsultationReview` 暫不新增 D1 欄位，先以既有 decision stage、internal email 與 analytics context 支援人工判斷，避免未經部署授權的 migration。
+- 2026-08-27 學生確認 Email 客製化與實際寄送：新增明確 `StudentConfirmationEmailData` DTO、application mapper、集中品牌／預約連結 constants，以及獨立 student／internal templates；學生信依 `service_type` 分流。一對一諮詢信顯示 Google Calendar 預約按鈕與 plain-text URL；直接報名信說明基本資料確認後 5 個工作天內寄送學校正式報名表。HTML 採 640px table layout、inline CSS、UTF-8、繁體中文品牌 Header、資料摘要、淺綠說明卡與深綠下一步區塊；空值隱藏、住宿值轉成可讀文字，學生信不包含內部 CRM 欄位。Gmail sender 顯示名稱更新為 `Lilai Ireland｜哩來愛爾蘭`，MIME 保留 RFC 2047 subject／sender encoding 與 multipart alternative。驗證：`npm.cmd run test:gmail` 13/13、`npx.cmd tsc --noEmit` 成功、`npm.cmd run lint` 0 errors／20 個既有 warnings、Wrangler dry-run 成功、`git diff --check` 成功；build 顯示 Build complete 後仍有 Windows 既知 libuv assertion。部署環境 workers.dev、Worker `site-creator-vinext-starter`、URL `https://site-creator-vinext-starter.lilaiireland.workers.dev`、Version ID `f4c43d42-193e-4ab7-8dd2-cbee11be72b7`（100%）、rollback baseline `eb0cfa98-da5d-4b74-bcd2-58b887efcfa1`；production custom route 未啟用。受控 E2E 建立測試諮詢 `ST-000004`（收件人 `lilaiireland@gmail.com`）：`student_email` succeeded／attempts 1／Gmail message ID `1a042835d60c84ec`，`internal_email` succeeded／attempts 1／message ID `1a042835c86dd953`，`notion_sync` succeeded／attempts 1；無 retry 或 error。測試資料明確標示為 Email template test；workers.dev 仍直連 production D1，此為既有 QA 污染風險。Cloudflare Email／Workers／Wrangler skill 規範要求的 secret 隔離、UTF-8 MIME 與 Worker 部署流程均已遵循。
 
 - Vinext compatibility check：100%，無已知 blocker。
 - Cloudflare Worker 與 Static Assets 已成功部署。

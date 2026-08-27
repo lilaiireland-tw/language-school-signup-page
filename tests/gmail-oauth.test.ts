@@ -101,9 +101,9 @@ test("non-ASCII sender display name uses an RFC 2047 UTF-8 encoded word", () => 
     "lilaiireland@gmail.com",
     "lilaiireland@gmail.com",
   );
-  const expectedName = Buffer.from("哩來愛爾蘭", "utf8").toString("base64");
+  const expectedName = Buffer.from("Lilai Ireland｜哩來愛爾蘭", "utf8").toString("base64");
   assert.equal(mime.split("\r\n")[0], `From: =?UTF-8?B?${expectedName}?= <lilaiireland@gmail.com>`);
-  assert.doesNotMatch(mime, /^From: 哩來愛爾蘭/m);
+  assert.doesNotMatch(mime, /^From: Lilai Ireland｜哩來愛爾蘭/m);
 });
 
 test("integration retry delay remains exponential and capped", () => {

@@ -1,5 +1,5 @@
-import { HttpError } from "../shared/http";
-import type { AdminApplicationPatch, ApplicationInput, CrmStatus, IsicEligibilityStatus, ServiceType } from "../shared/types";
+import { HttpError } from "../shared/http.ts";
+import type { AdminApplicationPatch, ApplicationInput, CrmStatus, IsicEligibilityStatus, ServiceType } from "../shared/types.ts";
 
 type UnknownRecord = Record<string, unknown>;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -19,6 +19,17 @@ function stringField(source: UnknownRecord, field: string, options: { required?:
   return normalized;
 }
 
+function safeLandingPageUrl(value: string): string {
+  if (!value) return "";
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" && url.protocol !== "http:") return "";
+    return `${url.origin}${url.pathname}`;
+  } catch {
+    return "";
+  }
+}
+
 export function parseApplicationInput(value: unknown): ApplicationInput {
   const source = object(value);
   const serviceType = stringField(source, "serviceType", { required: true }) as ServiceType;
@@ -29,6 +40,7 @@ export function parseApplicationInput(value: unknown): ApplicationInput {
   const agreementSource = object(source.agreements);
   const agreementEntries = Object.entries(agreementSource);
   if (!agreementEntries.length || agreementEntries.some(([, checked]) => checked !== true)) throw new HttpError(422, "validation_failed", "請勾選所有必要同意事項。");
+  if (serviceType === "direct_application" && agreementSource.isic !== true) throw new HttpError(422, "validation_failed", "請確認 ISIC 贈禮與官方審核說明。", { isic: "此欄位為必填" });
   const agreements = Object.fromEntries(agreementEntries.map(([key]) => [key, true])) as Record<string, true>;
 
   const input: ApplicationInput = {
@@ -55,9 +67,21 @@ export function parseApplicationInput(value: unknown): ApplicationInput {
     utmSource: stringField(source, "utmSource", { max: 300 }), utmMedium: stringField(source, "utmMedium", { max: 300 }),
     utmCampaign: stringField(source, "utmCampaign", { max: 300 }), utmContent: stringField(source, "utmContent", { max: 300 }),
     utmTerm: stringField(source, "utmTerm", { max: 300 }), gclid: stringField(source, "gclid", { max: 500 }),
-    landingPageUrl: stringField(source, "landingPageUrl", { max: 1000 }),
+    landingPageUrl: safeLandingPageUrl(stringField(source, "landingPageUrl", { max: 1000 })),
+    // Legacy D1 field name retained for compatibility; this means the direct-application ISIC gift is included,
+    // not that the student has passed official ISIC eligibility review.
     isicInitiallyEligible: source.isicInitiallyEligible === true,
   };
+  if (serviceType === "consultation") {
+    input.preferredSchool = "";
+    input.customSchool = "";
+    input.decisionStage = "";
+    input.isicInitiallyEligible = false;
+    delete input.agreements.isic;
+  } else {
+    input.consultationGoal = "";
+    input.isicInitiallyEligible = true;
+  }
   if (input.preferredSchool === "其他指定學校" && !input.customSchool) throw new HttpError(422, "validation_failed", "請填寫指定學校。", { customSchool: "此欄位為必填" });
   if (input.accommodationNeeded !== "不需要" && !input.partnerAccommodationInterest) throw new HttpError(422, "validation_failed", "請完成住宿需求。", { partnerAccommodationInterest: "此欄位為必填" });
   return input;
