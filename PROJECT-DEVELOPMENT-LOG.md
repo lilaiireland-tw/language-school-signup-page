@@ -21,7 +21,7 @@
 - 正式網站仍由 WordPress 提供；Worker 只在 workers.dev 測試。
 - 2026-08-28 圖片顯示診斷：Worker 上的 `faci06-1024x683.jpg`、`Layer-2.png`、`community-seaside.jpg`、`community-extra-01.jpg` 均回傳 HTTP 200 與正確 image Content-Type，Worker 首頁 HTML 也已引用四張圖片；兩個 Leevin 外部介紹頁均回傳 HTTP 200。`lilaiireland.com` 首頁仍是 WordPress，未包含上述新版 HTML，因此正式網域看不到圖片不是資源檔或 React 路徑錯誤，而是 production custom route 尚未啟用。未更動 DNS、WordPress 或 Cloudflare production route。
 - D1 報名後端已完成並部署；`POST /api/applications` 已通過 production D1 E2E。
-- Git：2026-08-28 已將 `feat/staging-isolation-hide-ai-support` 的 staging 隔離、使用者重新啟用 AI 英語練功系統及本輪全部前端修正提交並同步至本機 `main`；未部署，遠端 repository 尚未設定。
+- Git：2026-08-28 已將 staging 隔離、使用者重新啟用 AI 英語練功系統、本輪全部前端修正與頁尾營運單位名稱更新部署至 workers.dev，並提交至本機 `main`；遠端 repository 尚未設定。
 - Integration consumer 已部署至 workers.dev；正式 Queue producer／consumer 與 Cron 已啟用。學生確認信已依「一對一諮詢／直接報名」分流為品牌 HTML 與 plain-text 版本；Gmail OAuth 寄信、Notion 同步及既有 pending jobs 均已在線上成功完成。
 - `ADMIN_API_TOKEN` 已由使用者在 Cloudflare Dashboard 安全輪替；Secret 值未經 Codex、Terminal、Git 或日誌。
 
@@ -75,14 +75,14 @@
 
 ## 部署基準
 
-最近一次部署：2026-08-27（Frontend review adaptation）
+最近一次部署：2026-08-28（Landing updates 與頁尾營運單位名稱）
 
 - 環境：workers.dev，連接 production D1
 - Worker：`site-creator-vinext-starter`
 - URL：https://site-creator-vinext-starter.lilaiireland.workers.dev
 - API：https://site-creator-vinext-starter.lilaiireland.workers.dev/api/applications
-- Version ID：`be14c334-958d-4c53-9ec8-8a8db4c975ec`（100% traffic）
-- Rollback baseline：`f4c43d42-193e-4ab7-8dd2-cbee11be72b7`
+- Version ID：`1deaaa0e-a1af-44a6-af2f-0b1d9a04a76d`（100% traffic）
+- Rollback baseline：`be14c334-958d-4c53-9ec8-8a8db4c975ec`
 - 部署前 D1 備份：`backups/pre-reference-code-migration-2026-08-27.sql`（11,403 bytes，僅存本機且已被 Git ignore）
 - 原始 QA checkpoint：`5aa3541a-2cf4-43f7-8f40-73f96c69922f`
 - Production D1：`lilai-applications-production`
@@ -93,6 +93,7 @@
 
 ## 已完成
 
+- 2026-08-28 workers.dev 全量更新部署：將本機 `main` 已完成的 staging 隔離、AI 英語練功系統重新顯示、隱私權政策連結、桌面標題斷句、直接報名區塊重構、Leevin／生活圈圖片修正、ISIC 僅限 25+8 標示，以及本輪頁尾營運單位「築夢愛爾國際留遊學顧問」一併建置並部署至既有 Worker `site-creator-vinext-starter`。因營運單位正式名稱含「顧問」，將 rendered HTML 測試由禁止整頁任何「顧問」字樣收斂為禁止舊「留學顧問／免費諮詢」定位，避免合法公司名稱造成誤判。環境：workers.dev（連接 production D1 `lilai-applications-production`、正式 Queue consumer 與 Cron）；URL `https://site-creator-vinext-starter.lilaiireland.workers.dev`；Version ID `1deaaa0e-a1af-44a6-af2f-0b1d9a04a76d`；rollback baseline `be14c334-958d-4c53-9ec8-8a8db4c975ec`。未變更 production custom route、DNS、Nameserver 或 WordPress。部署前驗證：Gmail／Email 13/13、frontend business logic 6/6、staging isolation 1/1、rendered HTML 2/2、TypeScript 成功、lint 0 errors／20 個既有 warnings、Vinext build complete、Wrangler dry-run 與 `git diff --check` 通過；build 結束仍有 Windows 既知 libuv assertion。部署後唯讀 smoke test：首頁 HTTP 200，最新頁尾與「僅限 25+8」內容存在；`GET /api/applications` 回傳 HTTP 405 與 `Allow: POST`，未建立 D1 測試資料、未觸發 Email 或 Notion。
 - 2026-08-28 本輪變更提交與本機 main 同步：納入 staging D1／測試 Queue 隔離、使用者重新啟用 AI 英語練功系統、隱私權政策連結、桌面標題斷句、直接報名區塊正向重構與訂金規則、Leevin／生活圈圖片可見性、生活圈原圖比例與非重疊 hover、ISIC 僅限 25+8 標示，以及所有相關測試。合併前驗證：Gmail／Email 13/13、frontend business logic 6/6、staging isolation 1/1、rendered HTML 2/2、TypeScript 成功、lint 0 errors／20 個既有 warnings、`git diff --check` 通過；最新 Vinext build 五階段與 prerender 完成後仍有 Windows 既知 libuv assertion。本輪只進行 Git commit 與本機 `main` 同步，未執行 Wrangler deploy、未變更 production Worker、custom route、DNS 或 WordPress。
 - 2026-08-28 ISIC 國際學生證 25+8 適用標示統一：所有學生可見的主要 ISIC／國際學生證文案均加上「（僅限 25+8 學生）」，涵蓋直接報名方案卡、服務邊界贈禮卡、圖片替代文字、表單提示與必要同意事項、送出成功畫面、開局支援卡、FAQ 與底部 CTA；原本「25+8 基本上適用」改為明確的「僅限報名 25+8 長期課程學生提出申請」，並保留仍須通過 ISIC 官方全日制資格與文件審核的條件。未更動 D1 欄位、API validation 或表單提交流程。Vinext 五階段 build 與 prerender 完成後仍出現 Windows 既知 libuv assertion；重建後 rendered HTML tests 2/2、TypeScript、`git diff --check` 通過。本地預覽 `http://localhost:3000/`，未部署、未 commit。
 - 2026-08-28 品牌生活圈照片取消重疊與 hover 質感：`.community-collage` 由絕對定位重疊改為有 20px gap 的上下 Grid，主圖維持 3:2 全寬、側圖維持 4:3 並右對齊（桌面 76%、平板 70%、手機 82%），兩張圖不再互相遮蓋。figcaption 加入 `z-index: 2`，確保「城市探索與出遊／哩來生活圈」標籤完整可見。Hover 僅將當前圖片內容於其 overflow 容器內放大至 1.045，搭配 3px 上浮與陰影加深，不改變 layout、不覆蓋另一張照片。驗證：rendered HTML tests 2/2、TypeScript、`git diff --check` 通過；本地預覽 `http://localhost:3000/`。未部署、未 commit。
@@ -203,7 +204,7 @@
 - Gmail 四項 secrets、`NOTION_TOKEN` 與 `NOTION_DATABASE_ID` 均已存在於 Cloudflare；Gmail refresh token 已通過實際寄送，Notion token、database ID 與 read/query 權限亦已通過唯讀 smoke test。OAuth credential JSON 與 token 不寫入 Git 或日誌。
 - Notion database 的 read/query、六個必要 properties、Insert/Update content 權限、production payload、Submission ID 冪等與 archive 清理均已通過隔離 smoke test。
 - `deploy:vinext` 目前依賴尚未配置的 `VINEXT_KV_CACHE`；在修正前需使用標準 Wrangler deploy command。
-- workers.dev 目前直接寫 production D1；應建立 staging D1，避免 QA 污染正式資料。
+- production workers.dev 仍直接寫 production D1 並啟動 Email／Notion consumer；一般 QA 應優先使用已隔離的 staging Worker，避免測試資料污染正式 D1 或寄出通知。
 - Turnstile 與 rate limiting 尚未完成，不可開啟正式廣告流量或 production route。
 
 ## 下一步計畫
@@ -214,7 +215,7 @@
 4. workers.dev 部署、Version ID／rollback baseline 記錄與既有 pending jobs 消化均已完成。
 5. 執行一筆全新的受控 production 表單 E2E，核對使用者信、內部信、Notion CRM page 與 D1 provider IDs。
 6. 若有永久設定錯誤，修正後提供受保護的人工重送流程，不直接改寫成功紀錄。
-7. 修正 `deploy:vinext` 的 KV cache binding／參數後，建立 staging D1，再加入 Turnstile 與 rate limiting。
+7. 修正 `deploy:vinext` 的 KV cache binding／參數，後續 QA 改用既有隔離 staging Worker，再加入 Turnstile 與 rate limiting。
 8. 完成 responsive／assets／console／network／form／metadata QA 與 WordPress SEO baseline。
 9. 經明確驗收後，才評估單一路徑 production route。
 

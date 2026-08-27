@@ -87,7 +87,7 @@ test("server-renders the Lilai Ireland application page", async () => {
   assert.match(html, /i\.ytimg\.com\/vi\/4OHtEJxV62U\/hqdefault\.jpg/);
   assert.match(html, /看說明會精華片段/);
   assert.doesNotMatch(html, /youtube-nocookie\.com\/embed\/4OHtEJxV62U/);
-  assert.doesNotMatch(html, /顧問|免費諮詢/);
+  assert.doesNotMatch(html, /留學顧問|免費諮詢/);
   assert.doesNotMatch(html, /Erin College/);
   assert.doesNotMatch(html, /free-departure-assessment/);
   assert.doesNotMatch(html, /Your site is taking shape|codex-preview/i);
