@@ -5,7 +5,6 @@ import { useLayoutEffect } from "react";
 const revealSelectors = {
   up: [".section-heading", ".brand-proof-copy", ".accommodation-fee-card"],
   stagger: [".offer-grid", ".four-grid", ".partner-school-grid", ".benefit-grid", ".accommodation-options", ".support-card-grid"],
-  mask: [".accommodation-photo", ".community-photo"],
   timeline: [".timeline"],
 } as const;
 

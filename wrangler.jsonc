@@ -68,6 +68,43 @@
     "enabled": true,
     "head_sampling_rate": 1
   },
+  "env": {
+    "staging": {
+      "name": "site-creator-vinext-starter-staging",
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "lilai-applications-staging",
+          "database_id": "370f3f4a-a1dd-40d7-8e2d-097fe835747f",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "queues": {
+        "producers": [
+          {
+            "binding": "INTEGRATION_QUEUE",
+            "queue": "lilai-application-integrations-staging"
+          }
+        ],
+        "consumers": []
+      },
+      "triggers": {
+        "crons": []
+      },
+      "images": {
+        "binding": "IMAGES"
+      },
+      "secrets": {
+        "required": []
+      },
+      "vars": {
+        "EMAIL_REPLY_TO": "lilaiireland@gmail.com",
+        "INTERNAL_NOTIFICATION_EMAIL": "lilaiireland@gmail.com",
+        "NOTION_VERSION": "2022-06-28",
+        "NEXT_PUBLIC_NOINDEX": "true"
+      }
+    }
+  },
   // "kv_namespaces": [
   //   {
   //     "binding": "VINEXT_KV_CACHE",

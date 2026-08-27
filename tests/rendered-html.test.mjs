@@ -22,6 +22,12 @@ test("server-renders the Lilai Ireland application page", async () => {
   const html = (await response.text()).replaceAll("<!-- -->", "");
   assert.match(html, /<title>愛爾蘭語校直接報名與選校協助｜哩來愛爾蘭<\/title>/i);
   assert.match(html, /提交直接報名需求/);
+  assert.match(html, /已經選好學校，就直接進入報名流程/);
+  assert.match(html, /直接報名限定加贈/);
+  assert.match(html, /訂金付款前/);
+  assert.match(html, /通過確認後才會收到付款通知/);
+  assert.match(html, /直接從申請開始，將省略這些流程/);
+  assert.match(html, /正式報名服務不會因此減少/);
   assert.match(html, /我需要預約一對一諮詢/);
   assert.match(html, /id="direct-application-form"/);
   assert.match(html, /不只是代辦語校，我們也幫你準備愛爾蘭開局大禮包/);
@@ -29,11 +35,10 @@ test("server-renders the Lilai Ireland application page", async () => {
   assert.match(html, /28 日 Three Super Surfer（含愛爾蘭手機門號），價值 20 歐元/);
   assert.match(html, /使用該門號開始申請 IRP、銀行卡、PPSN 等相關文件/);
   assert.match(html, /Lite 正式上線 14 日體驗・Pro 一年份使用權限/);
-  assert.match(html, /AI 英語練功系統正式上線 14 日體驗資格/);
-  assert.match(html, /AI 英語練功系統，一年份使用權限/);
-  assert.match(html, /加贈 ISIC 國際學生證/);
+  assert.match(html, /AI 英語練功系統/);
+  assert.match(html, /加贈 ISIC 國際學生證（僅限 25\+8 學生）/);
   assert.match(html, /直接報名、不使用選校諮詢者加贈/);
-  assert.match(html, /報名 25\+8 長期課程的學生基本上均適用提出申請/);
+  assert.match(html, /僅限報名 25\+8 長期課程的學生提出申請/);
   assert.match(html, /12 個月國際學生身分/);
   assert.match(html, /ISIC 全日制學生資格/);
   assert.match(html, /Mad Egg 20% 折扣/);
@@ -62,7 +67,7 @@ test("server-renders the Lilai Ireland application page", async () => {
   assert.match(html, /原定入住日 24 小時前通知 Leevin/);
   assert.match(html, /住宿安排服務費不退/);
   assert.match(html, /報名語校並詢問住宿方案/);
-  assert.match(html, /不使用一對一選校諮詢者才會加贈 ISIC 國際學生證/);
+  assert.match(html, /才會加贈 ISIC 國際學生證（僅限 25\+8 學生）/);
   assert.doesNotMatch(html, /比官網報價更優惠|Viva Ireland|Leevin Hostel|Leevin Student Accommodation|落地過渡與短期住宿|較穩定住宿期間|Wi-Fi、帳單與每週清潔依實際方案提供/);
   assert.equal((html.match(/2026 愛爾蘭出發前 30 件必做清單/g) ?? []).length, 2);
   assert.doesNotMatch(html, /抵達前後常見問題整理|Web App 測試資格|Lite 測試資格|預計 8 月開放 Web App 測試版|Leap Card|護照英文姓名/);
@@ -89,11 +94,12 @@ test("server-renders the Lilai Ireland application page", async () => {
 });
 
 test("keeps the form handoff contract explicit", async () => {
-  const [types, api, data, schools, page, styles, revealController, referenceMigration, applicationService, gmail, internalEmail, notion, repository] = await Promise.all([
+  const [types, api, data, schools, brandLinks, page, styles, revealController, referenceMigration, applicationService, gmail, internalEmail, notion, repository] = await Promise.all([
     readFile(new URL("../app/lib/types.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/lib/api.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/lib/data.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/lib/schools.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/lib/brand-links.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../app/components/reveal-controller.tsx", import.meta.url), "utf8"),
@@ -133,7 +139,21 @@ test("keeps the form handoff contract explicit", async () => {
   assert.doesNotMatch(data, /isicEligible/);
   assert.doesNotMatch(data, /leap/i);
   assert.match(page, /consultationAgreementTexts/);
+  assert.doesNotMatch(page, /boundary-no/);
+  assert.doesNotMatch(page, /<h3><X \/> 直接報名不包含<\/h3>/);
+  assert.match(page, /title:\s*"AI 英語練功系統"[\s\S]*?visible:\s*true/);
+  assert.match(page, /AI 英語練功系統正式上線 14 日體驗資格[\s\S]*?visible:\s*false/);
+  assert.match(page, /AI 英語練功系統，一年份使用權限[\s\S]*?visible:\s*false/);
   assert.match(page, /className="privacy-notice" role="note"/);
+  assert.match(page, /className="privacy-policy-link" href=\{BRAND_LINKS\.privacy\} target="_blank" rel="noopener noreferrer"/);
+  assert.match(brandLinks, /privacy:\s*"https:\/\/lilaiireland\.com\/agreement\/"/);
+  assert.match(page, /不只把你送到學校，<br \/>而是陪你在愛爾蘭開始生活/);
+  assert.match(styles, /\.brand-proof-grid\s*\{[^}]*grid-template-columns:\s*1\.15fr \.85fr/);
+  assert.match(styles, /@media \(min-width:\s*1001px\)[\s\S]*?\.brand-proof-copy h2\s*\{\s*white-space:\s*nowrap;/);
+  assert.match(styles, /\.accommodation-heading-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1\.55fr\) minmax\(280px, \.45fr\)/);
+  assert.match(styles, /@media \(min-width:\s*1001px\)[\s\S]*?\.accommodation-heading-grid \.section-heading h2\s*\{[^}]*white-space:\s*nowrap/);
+  assert.match(styles, /\.gift-support-section \.section-heading\s*\{\s*max-width:\s*1080px/);
+  assert.match(styles, /@media \(min-width:\s*1001px\)[\s\S]*?\.gift-support-section \.section-heading h2\s*\{[^}]*white-space:\s*nowrap/);
   assert.match(page, /src="\/lilai-assets\/leevin\/faci06-1024x683\.jpg"/);
   assert.match(page, /src="\/lilai-assets\/leevin\/Layer-2\.png"/);
   assert.doesNotMatch(page, /leevinstay\.com\/wp-content\/uploads/);
@@ -164,7 +184,16 @@ test("keeps the form handoff contract explicit", async () => {
   assert.match(revealController, /prefers-reduced-motion:\s*reduce/);
   assert.match(styles, /data-reveal="up"/);
   assert.match(styles, /data-reveal="stagger"/);
-  assert.match(styles, /data-reveal="mask"/);
+  assert.doesNotMatch(revealController, /mask:\s*\["\.accommodation-photo", "\.community-photo"\]/);
+  assert.doesNotMatch(styles, /data-reveal="mask"/);
+  assert.match(styles, /\.accommodation-photo\s*\{[^}]*clip-path:\s*none !important;[^}]*opacity:\s*1;/);
+  assert.match(styles, /\.community-photo\s*\{[^}]*clip-path:\s*none !important;[^}]*opacity:\s*1;/);
+  assert.match(styles, /\.community-photo-main\s*\{[^}]*aspect-ratio:\s*3 \/ 2;/);
+  assert.match(styles, /\.community-photo-side\s*\{[^}]*aspect-ratio:\s*4 \/ 3;/);
+  assert.match(styles, /\.community-collage\s*\{[^}]*display:\s*grid;[^}]*gap:\s*20px/);
+  assert.match(styles, /\.community-photo\s*\{[^}]*position:\s*relative;/);
+  assert.match(styles, /\.community-photo:hover img\s*\{\s*transform:\s*scale\(1\.045\);/);
+  assert.match(styles, /\.community-photo figcaption\s*\{[^}]*z-index:\s*2;/);
   assert.match(styles, /data-reveal="timeline"/);
   assert.match(styles, /@keyframes reveal-line/);
   assert.doesNotMatch(revealController, /application-form|faq-list|final-actions|hero-actions|site-header/);
