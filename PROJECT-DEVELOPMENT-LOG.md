@@ -17,9 +17,9 @@
 - 正式網站：https://lilaiireland.com
 - Worker 測試網址：https://site-creator-vinext-starter.lilaiireland.workers.dev
 - 第一個預定接管 URL：https://lilaiireland.com/language-school-signup/
-- Production custom route：**未啟用**
-- 正式網站仍由 WordPress 提供；Worker 只在 workers.dev 測試。
-- 2026-08-29 Turnstile 與學生信改版已完成並部署：Cloudflare Dashboard 已設定 `TURNSTILE_SECRET`、`TURNSTILE_SITE_KEY`、`TURNSTILE_HOSTNAMES`，允許的 runtime hostname 僅為 `site-creator-vinext-starter.lilaiireland.workers.dev`、`lilaiireland.com`、`www.lilaiireland.com`，不包含 localhost 或 `127.0.0.1`。前端 widget、公開 runtime config、表單 token 傳遞及 Worker Siteverify 均已上線；固定 action 為 `application_submit`，後端要求 `success=true`、action 與 hostname 相符，Siteverify 異常一律 fail closed。學生確認信已依 `哩來愛爾蘭-郵件設計規範.md` 改為 600px table、品牌色、內容卡片／CTA／結尾結構及 Alex & Arsha 聯合署名，直接報名與諮詢付款分流保持不變。最新 workers.dev Version ID 為 `75f319b8-a21b-479c-b7b0-3b62382d7b08`；production custom route、DNS、Nameserver 與 WordPress 均未變更。
+- Production custom route：**已啟用**，僅接管 `/language-school-signup` 與 `/language-school-signup/*`。
+- 正式網站其餘路徑仍由 WordPress 提供；Worker 同時保留 workers.dev 測試網址。
+- 2026-08-29 Turnstile 與學生信改版已完成並部署：Cloudflare Dashboard 已設定 `TURNSTILE_SECRET`、`TURNSTILE_SITE_KEY`、`TURNSTILE_HOSTNAMES`，允許的 runtime hostname 僅為 `site-creator-vinext-starter.lilaiireland.workers.dev`、`lilaiireland.com`、`www.lilaiireland.com`，不包含 localhost 或 `127.0.0.1`。前端 widget、公開 runtime config、表單 token 傳遞及 Worker Siteverify 均已上線；固定 action 為 `application_submit`，後端要求 `success=true`、action 與 hostname 相符，Siteverify 異常一律 fail closed。學生確認信已依 `哩來愛爾蘭-郵件設計規範.md` 改為 600px table、品牌色、內容卡片／CTA／結尾結構及 Alex & Arsha 聯合署名，直接報名與諮詢付款分流保持不變。功能最初部署 Version ID 為 `75f319b8-a21b-479c-b7b0-3b62382d7b08`，目前已隨 production routes 發布於 Version ID `8e8c235a-f60f-4d00-bd9f-23d7b457529f`。
 - 2026-08-28 圖片顯示診斷：Worker 上的 `faci06-1024x683.jpg`、`Layer-2.png`、`community-seaside.jpg`、`community-extra-01.jpg` 均回傳 HTTP 200 與正確 image Content-Type，Worker 首頁 HTML 也已引用四張圖片；兩個 Leevin 外部介紹頁均回傳 HTTP 200。`lilaiireland.com` 首頁仍是 WordPress，未包含上述新版 HTML，因此正式網域看不到圖片不是資源檔或 React 路徑錯誤，而是 production custom route 尚未啟用。未更動 DNS、WordPress 或 Cloudflare production route。
 - D1 報名後端已完成並部署；`POST /api/applications` 已通過 production D1 E2E。
 - 2026-08-28 上線前 D1 資料評估：**不需要也不應刪除 production D1 database、table、index、trigger 或 `d1_migrations` 才能上線**。現有部署紀錄確認 production D1 至少有 4 筆明確 QA／E2E／Email template 測試申請及其整合工作；正式 route 尚未啟用。建議在正式 route 開啟前先做即時唯讀盤點與完整 export，確認沒有真實案件後，只刪除測試用 `integration_jobs`／`applications` 並將 `application_reference_sequence.next_value` 重設為 1。D1 清理不會移除已寄 Gmail 或已同步的 Notion 測試頁，Notion 測試頁需另行封存。此輪僅評估與記錄，未更動 D1、Notion、Queue、Email 或 routing。
@@ -86,24 +86,26 @@
 
 ## 部署基準
 
-最近一次部署：2026-08-29（Turnstile production 驗證與學生確認信品牌模板）
+最近一次部署：2026-08-29（正式單一路徑 production routes 上線）
 
-- 環境：workers.dev，連接 production D1
+- 環境：production custom routes + workers.dev，連接 production D1
 - Worker：`site-creator-vinext-starter`
-- URL：https://site-creator-vinext-starter.lilaiireland.workers.dev/language-school-signup/
-- API：https://site-creator-vinext-starter.lilaiireland.workers.dev/language-school-signup/api/applications
-- Version ID：`75f319b8-a21b-479c-b7b0-3b62382d7b08`（100% traffic）
-- Rollback baseline：`c7fd415f-df1a-4c6b-a930-42b1b4a17f39`
+- URL：https://lilaiireland.com/language-school-signup/
+- workers.dev：https://site-creator-vinext-starter.lilaiireland.workers.dev/language-school-signup/
+- API：https://lilaiireland.com/language-school-signup/api/applications
+- Version ID：`8e8c235a-f60f-4d00-bd9f-23d7b457529f`（100% traffic）
+- Worker code rollback baseline：`75f319b8-a21b-479c-b7b0-3b62382d7b08`
 - 部署前 D1 備份：`backups/pre-reference-code-migration-2026-08-27.sql`（11,403 bytes，僅存本機且已被 Git ignore）
 - 原始 QA checkpoint：`5aa3541a-2cf4-43f7-8f40-73f96c69922f`
 - Production D1：`lilai-applications-production`
 - D1 database ID：`d7b4209c-fce2-4f0d-9b18-3f19c183b430`
 - Region：APAC
-- Production custom route：未啟用
-- Rollback：將 workers.dev traffic 回切 rollback baseline；D1 migration 目前只有 additive table 建立，資料不可透過 Worker rollback 自動移除。
+- Production custom routes：`lilaiireland.com/language-school-signup`、`lilaiireland.com/language-school-signup/*`
+- Rollback：程式異常可回切 Worker code baseline；若需撤除正式網址接管，必須從 `wrangler.jsonc` 移除上述兩條 routes 後重新部署，單純 Worker version rollback 不保證移除 route triggers。D1 migration 目前只有 additive table 建立，資料不可透過 Worker rollback 自動移除。
 
 ## 已完成
 
+- 2026-08-29 正式報名頁 production routes 上線：在 `wrangler.jsonc` 版本化兩條精確路由 `lilaiireland.com/language-school-signup` 與 `lilaiireland.com/language-school-signup/*`，並明確設定 `workers_dev: true`，避免啟用 custom routes 時關閉原測試網址。未使用 `lilaiireland.com/*`，不接管整站。環境：production custom routes + workers.dev；Worker `site-creator-vinext-starter`；正式 URL `https://lilaiireland.com/language-school-signup/`；Version ID `8e8c235a-f60f-4d00-bd9f-23d7b457529f`；Worker code rollback baseline `75f319b8-a21b-479c-b7b0-3b62382d7b08`。線上 QA：正式頁與 workers.dev 均 HTTP 200、正式 canonical 正確且無 noindex、CSS bundle HTTP 200、Turnstile config action 正確且 site key 存在、無 token POST HTTP 403；首頁與 `/agreement/` HTTP 200 且仍由 WordPress.com 回應，相似但未匹配的 `/language-school-signup-unrelated` 仍由 WordPress.com 回傳 404。Build 五階段與 prerender 完成，Wrangler dry-run 及 `git diff --check` 通過；Windows 結尾仍有已知 libuv assertion。未修改 DNS、Nameserver、WordPress、D1 資料、Queue 或 secrets。
 - 2026-08-29 Turnstile 與學生確認信 production 部署：前端僅從 `/language-school-signup/api/turnstile-config` 取得可公開 site key 與固定 action `application_submit`，表單送出附帶一次性 token；Worker 在任何 D1 寫入、Queue 或 Email 工作前呼叫 Cloudflare Siteverify，並嚴格核對 action 與 `TURNSTILE_HOSTNAMES`。允許 hostname 不含 localhost／`127.0.0.1`；驗證缺漏、錯誤、逾時或網路異常全部 fail closed。學生信依郵件設計規範改為 600px 品牌 table layout，保留直接報名／一對一諮詢分流、NT$800 與 24 小時付款規則、匯款資訊及轉帳證明指示，署名統一為 Alex & Arsha。環境：workers.dev（production D1／Queue／Cron）；Worker `site-creator-vinext-starter`；URL `https://site-creator-vinext-starter.lilaiireland.workers.dev/language-school-signup/`；Version ID `75f319b8-a21b-479c-b7b0-3b62382d7b08`（100% traffic）；rollback baseline `c7fd415f-df1a-4c6b-a930-42b1b4a17f39`，功能導入前含完整 Turnstile secrets 的 baseline 為 `ee92fb99-9836-4055-a6f8-c07e2b4b6f53`。線上 QA：landing HTTP 200、runtime config action 正確且 site key 存在、無 token POST 回傳 HTTP 403 且未進入 D1／寄信。驗證：Turnstile 3/3、Gmail／Email 13/13、frontend 7/7、staging 1/1、rendered HTML 2/2、TypeScript、Wrangler dry-run 與 `git diff --check` 通過；changed-files lint 0 errors／17 warnings；Vinext 五階段與 prerender 顯示 Build complete，結尾仍有 Windows 已知 libuv assertion。未啟用 production custom route，未變更 DNS、Nameserver、WordPress 或 D1 資料。
 - 2026-08-28 workers.dev 上線前路徑版本部署：Vinext 以 `vite.config.ts` 的 `nextConfig` 正式啟用 `/language-school-signup` base path 與 trailing slash；CSS／JS、Noto WOFF2、品牌圖片、favicon／OG 與公開表單 API 全部收斂至同一子路徑。canonical 固定為 `https://lilaiireland.com/language-school-signup/`，僅正式 hostname 可 index，workers.dev 維持 `noindex, nofollow`。Worker 子路徑只公開 `POST /api/applications`，不把 Admin API 掛到公開 landing path；新增 Cloudflare Workers Rate Limiting binding，production 與 staging 使用不同 namespace，公開送出端點每個 location 限制 30 requests／60 秒並在超限時回傳 429 與 `Retry-After: 60`。環境：workers.dev（production D1／Queue／Cron）；Worker `site-creator-vinext-starter`；URL `https://site-creator-vinext-starter.lilaiireland.workers.dev/language-school-signup/`；Version ID `ced74dd8-e95d-4992-9ca7-ab399ab54886`；rollback baseline `962c7ea7-25d6-4657-8140-5b849c815eca`。線上唯讀 QA：landing 200、Worker 根路徑 404、Noto Regular 200 `font/woff2`、logo 200 `image/png`、公開 API GET 405；HTML 包含子路徑 bundles／assets、正式 canonical 與 workers.dev noindex。TypeScript、Gmail／Email 13/13、frontend 7/7、staging 1/1、rendered HTML 2/2、Wrangler dry-run 與 `git diff --check` 通過；lint 0 errors／20 個既有 warnings；Vinext 五階段與 prerender Build complete，結尾仍有 Windows 已知 libuv assertion。Turnstile 尚待網域與安全憑證建立確認；production Route、DNS、Nameserver 與 WordPress 均未變更。
 - 2026-08-28 production custom route 上線前唯讀診斷：依 Cloudflare 官方 Route matching 規則及線上 HTTP 檢查，確認現有 Worker 根頁 `/` 為 200，但 `/language-school-signup/` 回傳 308 並導向沒有對應 app route 的 `/language-school-signup` 404；回傳 HTML 顯示 `/_next/static/...` 根路徑 bundle、`/favicon.svg`、root-host OG image 與錯誤的首頁 canonical。程式亦確認表單以絕對根路徑 `/api/applications` 送出。現況若只建立 `lilaiireland.com/language-school-signup*` Route，會把正式 URL 接到 404；若只建立較窄 path Route，根路徑資產／API 仍會落回 WordPress。Vinext 1.0.0-beta.7 本機相容表標示支援 `basePath` 與 `trailingSlash`，建議先以 `/language-school-signup` base path 收斂頁面與資產、同步調整 Worker API routing、canonical／OG URL，再部署最新版並驗證目標 path、query string、資產、表單、Email／Notion、404 邊界與 WordPress 未接管頁。Cloudflare 官方文件確認既有外部 origin 的局部接管應使用 Route，且 route 所在 hostname 必須已有 Cloudflare proxied DNS；本輪未新增、修改或刪除任何 Cloudflare Route／Custom Domain／DNS／WordPress 設定，也未部署 Worker。
@@ -227,7 +229,7 @@
 - Notion database 的 read/query、六個必要 properties、Insert/Update content 權限、production payload、Submission ID 冪等與 archive 清理均已通過隔離 smoke test。
 - `deploy:vinext` 目前依賴尚未配置的 `VINEXT_KV_CACHE`；在修正前需使用標準 Wrangler deploy command。
 - production workers.dev 仍直接寫 production D1 並啟動 Email／Notion consumer；一般 QA 應優先使用已隔離的 staging Worker，避免測試資料污染正式 D1 或寄出通知。
-- Worker rate limiting 與 Turnstile production 驗證均已完成並部署。正式 route 啟用前仍應以真實瀏覽器完成一次 Turnstile 解題與表單端到端 smoke test；目前未配置瀏覽器自動化工具。Turnstile widget metadata 的 API 自動核對腳本因未提供具 `Account.Turnstile:Edit` 權限的 API token 而未執行，但 Worker secret 名稱、runtime config 與 fail-closed 403 已在線上驗證。
+- Worker rate limiting、Turnstile production 驗證與正式單一路徑 route 均已完成並部署。仍應由真人在正式網址完成一次 Turnstile 解題與表單端到端 smoke test；目前未配置瀏覽器自動化工具。Turnstile widget metadata 的 API 自動核對腳本因未提供具 `Account.Turnstile:Edit` 權限的 API token 而未執行，但 Worker secret 名稱、runtime config 與 fail-closed 403 已在線上驗證。
 - Noto 字型已完成程式碼與 build 產物驗證，但真實瀏覽器字型 network requests、CLS、LCP 與各 breakpoint 視覺截圖尚未量測；需配置 Chrome DevTools MCP 後補做。網站文案新增不在現有子集內的字元時，需以保留於本機 `/font/` 的原始 TTF 重新執行 `python scripts/subset-site-fonts.py`。
 
 ## 下一步計畫
@@ -240,7 +242,7 @@
 6. 若有永久設定錯誤，修正後提供受保護的人工重送流程，不直接改寫成功紀錄。
 7. Turnstile production widget／secret、前端 token、server-side Siteverify、hostname／action 驗證與失敗測試均已完成並部署；正式 route 前補做真實瀏覽器成功解題 E2E。`deploy:vinext` 的 KV cache binding／參數仍需另行修正。
 8. 配置 Chrome DevTools MCP 後，補做 Noto 字型的 desktop／mobile 視覺、Core Web Vitals、CLS 與 network waterfall；再完成其餘 responsive／assets／console／network／form／metadata QA 與 WordPress SEO baseline。
-9. 經明確驗收後，才評估單一路徑 production route。
+9. 單一路徑 production route 已上線並完成 HTTP／資產／API／WordPress 邊界 QA；由真人在正式網址完成一次 Turnstile 成功解題及受控表單 E2E。
 
 ## Git 工作方式
 

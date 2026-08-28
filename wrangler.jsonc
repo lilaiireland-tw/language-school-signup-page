@@ -6,6 +6,17 @@
     "nodejs_compat"
   ],
   "main": "./worker/index.ts",
+  "workers_dev": true,
+  "routes": [
+    {
+      "pattern": "lilaiireland.com/language-school-signup",
+      "zone_name": "lilaiireland.com"
+    },
+    {
+      "pattern": "lilaiireland.com/language-school-signup/*",
+      "zone_name": "lilaiireland.com"
+    }
+  ],
   "assets": {
     "directory": "dist/client",
     "not_found_handling": "none",
