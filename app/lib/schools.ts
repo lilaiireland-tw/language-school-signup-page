@@ -44,7 +44,7 @@ export const partnerSchools: PartnerSchool[] = [
 ];
 
 export const visiblePartnerSchools = partnerSchools.filter((item) => item.visible);
-export const nonCitySchoolOptions = ["其他指定學校", "尚未確定"] as const;
+export const nonCitySchoolOptions = ["其他指定學校"] as const;
 export function getSchoolOptionsForCity(city: string): string[] {
   return [
     ...partnerSchools.filter((item) => item.city === city && item.visible && item.directApplicationEligible).map((item) => item.name),

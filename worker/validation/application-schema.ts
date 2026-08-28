@@ -5,6 +5,7 @@ type UnknownRecord = Record<string, unknown>;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CRM_STATUSES = new Set<CrmStatus>(["new", "contacted", "qualified", "quoted", "deposit_pending", "enrolled", "closed_lost"]);
 const ISIC_STATUSES = new Set<IsicEligibilityStatus>(["pending", "eligible", "requires_documents", "not_eligible"]);
+const UNCERTAIN_DIRECT_VALUES = new Set(["尚未確定", "尚未確定／希望諮詢", "尚未確認"]);
 
 function object(value: unknown): UnknownRecord {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new HttpError(422, "validation_failed", "請求資料格式錯誤。");
@@ -81,6 +82,9 @@ export function parseApplicationInput(value: unknown): ApplicationInput {
   } else {
     input.consultationGoal = "";
     input.isicInitiallyEligible = true;
+    const directSelectionFields = ["preferredCity", "preferredSchool", "courseType", "expectedStartMonth", "courseDuration", "classSchedule", "accommodationNeeded", "budgetRange"] as const;
+    const uncertainField = directSelectionFields.find((field) => UNCERTAIN_DIRECT_VALUES.has(input[field]));
+    if (uncertainField) throw new HttpError(422, "validation_failed", "直接報名請選擇已確認的選項；尚未確定請改填一對一諮詢。", { [uncertainField]: "直接報名不可選擇尚未確定" });
   }
   if (input.preferredSchool === "其他指定學校" && !input.customSchool) throw new HttpError(422, "validation_failed", "請填寫指定學校。", { customSchool: "此欄位為必填" });
   if (input.accommodationNeeded !== "不需要" && !input.partnerAccommodationInterest) throw new HttpError(422, "validation_failed", "請完成住宿需求。", { partnerAccommodationInterest: "此欄位為必填" });

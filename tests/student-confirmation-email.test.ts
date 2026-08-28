@@ -33,6 +33,19 @@ test("consultation email contains personalized data and the booking link", () =>
   assert.match(rendered.html, /規劃 25\+8 打工遊學/);
   assert.ok(rendered.html.includes(BRAND_LINKS.consultationBooking));
   assert.ok(rendered.text.includes(BRAND_LINKS.consultationBooking));
+  for (const output of [rendered.html, rendered.text]) {
+    assert.match(output, /一對一語校諮詢需先支付/);
+    assert.match(output, /NT\$800/);
+    assert.match(output, /成功報名學校後可抵訂金/);
+    assert.match(output, /抵達愛爾蘭後，此筆諮詢費將全額退回/);
+    assert.match(output, /保留 (?:<strong>)?24 小時/);
+    assert.match(output, /完成付款後預約才正式成立/);
+    assert.match(output, /逾期未付款將自動釋出/);
+    assert.match(output, /合作金庫（006）三民分行/);
+    assert.match(output, /0590717154926/);
+    assert.match(output, /築夢愛爾國際留遊學顧問/);
+    assert.match(output, /回覆此封 Email 並附上轉帳證明/);
+  }
   assert.doesNotMatch(rendered.html, /5 個工作天/);
   assertClean(rendered);
 });
@@ -48,6 +61,9 @@ test("direct application email includes the five-business-day next step", () => 
   assert.match(rendered.html, /目前不需要住宿協助/);
   assert.match(rendered.html, /5 個工作天/);
   assert.doesNotMatch(rendered.html, /calendar\.google\.com/);
+  for (const output of [rendered.html, rendered.text]) {
+    assert.doesNotMatch(output, /方案與付款規則|0590717154926|轉帳證明|保留 (?:<strong>)?24 小時/);
+  }
   assertClean(rendered);
 });
 

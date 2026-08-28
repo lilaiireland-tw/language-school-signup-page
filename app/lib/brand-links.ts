@@ -1,5 +1,5 @@
 export const BRAND_LINKS = {
-  website: "https://lilaiireland.com",
+  website: "https://lilaiireland.com/",
   assessment: "https://lilaiireland.com/consult/",
   consultation: "#direct-application-form",
   privacy: "https://lilaiireland.com/agreement/",

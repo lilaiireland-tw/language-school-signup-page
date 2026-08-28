@@ -7,6 +7,7 @@ export const DIRECT_APPLICATION_TERMS = {
 export const CONSULTATION_TERMS = {
   priceTwd: 800,
   originalPriceTwd: 1000,
+  bookingHoldHours: 24,
 } as const;
 
 export const ACCOMMODATION_TERMS = {

@@ -13,7 +13,7 @@ function form(overrides: Partial<DirectApplicationFormData> = {}): DirectApplica
     currentLocation: "台灣", preferredCity: "Dublin", preferredSchool: "ISI Dublin", customSchool: "", courseType: "25+8 長期語言課程",
     expectedStartMonth: "2027-01", courseDuration: "25+8 課程", classSchedule: "上午", accommodationNeeded: "不需要",
     partnerAccommodationInterest: "", quoteStatus: "尚未取得", decisionStage: "我已確認主要學校及課程，可以直接報名",
-    consultationGoal: "stale consultation value", budgetRange: "尚未確認", additionalNotes: "", discoverySource: "", agreements: { "agreement-0": true, isic: true },
+    consultationGoal: "stale consultation value", budgetRange: "NT$200,000–250,000（約 €5,500–€6,900）", additionalNotes: "", discoverySource: "", agreements: { "agreement-0": true, isic: true },
     utmSource: "", utmMedium: "", utmCampaign: "", utmContent: "", utmTerm: "", gclid: "", landingPageUrl: "https://example.com/path", isicInitiallyEligible: true,
     ...overrides,
   };
@@ -29,6 +29,7 @@ test("Erin stays in the dataset but is hidden and cannot be selected", () => {
 });
 
 test("assessment URL has one approved source of truth", () => {
+  assert.equal(BRAND_LINKS.website, "https://lilaiireland.com/");
   assert.equal(BRAND_LINKS.assessment, "https://lilaiireland.com/consult/");
 });
 
@@ -39,6 +40,25 @@ test("direct readiness distinguishes ready, partial, and consultation review", (
   const review = evaluateDirectApplicationReadiness(form({ preferredCity: "尚未確定", preferredSchool: "尚未確定", decisionStage: "我仍需要完整比較不同學校或城市" }));
   assert.equal(review.ready, false);
   assert.equal(review.requiresConsultationReview, true);
+});
+
+test("only consultation accepts uncertain select values", () => {
+  for (const [field, value] of [
+    ["preferredCity", "尚未確定"], ["preferredSchool", "尚未確定"], ["courseType", "尚未確定／希望諮詢"],
+    ["expectedStartMonth", "尚未確定"], ["courseDuration", "尚未確定"], ["classSchedule", "尚未確定"],
+    ["accommodationNeeded", "尚未確定"], ["budgetRange", "尚未確認"],
+  ] as const) {
+    assert.throws(() => parseApplicationInput(form({ [field]: value })), /直接報名請選擇已確認/);
+  }
+
+  const consultation = parseApplicationInput(form({
+    serviceType: "consultation", preferredCity: "尚未確定", preferredSchool: "", courseType: "尚未確定／希望諮詢",
+    expectedStartMonth: "尚未確定", courseDuration: "尚未確定", classSchedule: "尚未確定",
+    accommodationNeeded: "不需要", budgetRange: "尚未確認", decisionStage: "", consultationGoal: "還不確定，想從頭一起討論",
+  }));
+  assert.equal(consultation.preferredCity, "尚未確定");
+  assert.equal(consultation.courseType, "尚未確定／希望諮詢");
+  assert.equal(consultation.budgetRange, "尚未確認");
 });
 
 test("payload sanitizer removes fields from the inactive mode", () => {
