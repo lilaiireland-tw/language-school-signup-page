@@ -22,4 +22,7 @@ test("staging uses isolated D1 and Queue bindings", async () => {
   assert.deepEqual(staging.triggers.crons, []);
   assert.deepEqual(staging.secrets.required, []);
   assert.equal(staging.vars.NEXT_PUBLIC_NOINDEX, "true");
+  assert.equal(config.ratelimits[0].name, "APPLICATION_RATE_LIMITER");
+  assert.equal(staging.ratelimits[0].name, "APPLICATION_RATE_LIMITER");
+  assert.notEqual(staging.ratelimits[0].namespace_id, config.ratelimits[0].namespace_id);
 });

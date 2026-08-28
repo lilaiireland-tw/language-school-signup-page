@@ -8,7 +8,7 @@ async function render() {
   const { default: worker } = await import(workerUrl.href);
 
   return worker.fetch(
-    new Request("http://localhost/", { headers: { accept: "text/html" } }),
+    new Request("http://localhost/language-school-signup/", { headers: { accept: "text/html" } }),
     { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } },
     { waitUntil() {}, passThroughOnException() {} },
   );
@@ -96,7 +96,7 @@ test("server-renders the Lilai Ireland application page", async () => {
 });
 
 test("keeps the form handoff contract explicit", async () => {
-  const [types, api, data, schools, brandLinks, page, styles, revealController, referenceMigration, applicationService, gmail, internalEmail, notion, repository] = await Promise.all([
+  const [types, api, data, schools, brandLinks, page, styles, revealController, referenceMigration, applicationService, gmail, internalEmail, notion, repository, paths, viteConfig, layout, router, applicationRoute, turnstile, turnstileWidget, wranglerSource] = await Promise.all([
     readFile(new URL("../app/lib/types.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/lib/api.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/lib/data.ts", import.meta.url), "utf8"),
@@ -111,6 +111,14 @@ test("keeps the form handoff contract explicit", async () => {
     readFile(new URL("../worker/email/templates/internal-notification.ts", import.meta.url), "utf8"),
     readFile(new URL("../worker/queue/notion.ts", import.meta.url), "utf8"),
     readFile(new URL("../worker/repositories/application-repository.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/lib/site-paths.ts", import.meta.url), "utf8"),
+    readFile(new URL("../vite.config.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../worker/router.ts", import.meta.url), "utf8"),
+    readFile(new URL("../worker/routes/applications.ts", import.meta.url), "utf8"),
+    readFile(new URL("../worker/security/turnstile.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/turnstile-widget.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../wrangler.jsonc", import.meta.url), "utf8"),
   ]);
 
   assert.match(types, /serviceType:\s*"direct_application"\s*\|\s*"consultation"/);
@@ -158,8 +166,8 @@ test("keeps the form handoff contract explicit", async () => {
   assert.match(styles, /@media \(min-width:\s*1001px\)[\s\S]*?\.accommodation-heading-grid \.section-heading h2\s*\{[^}]*white-space:\s*nowrap/);
   assert.match(styles, /\.gift-support-section \.section-heading\s*\{\s*max-width:\s*1080px/);
   assert.match(styles, /@media \(min-width:\s*1001px\)[\s\S]*?\.gift-support-section \.section-heading h2\s*\{[^}]*white-space:\s*nowrap/);
-  assert.match(page, /src="\/lilai-assets\/leevin\/faci06-1024x683\.jpg"/);
-  assert.match(page, /src="\/lilai-assets\/leevin\/Layer-2\.png"/);
+  assert.match(page, /appPath\("\/lilai-assets\/leevin\/faci06-1024x683\.jpg"\)/);
+  assert.match(page, /appPath\("\/lilai-assets\/leevin\/Layer-2\.png"\)/);
   assert.doesNotMatch(page, /leevinstay\.com\/wp-content\/uploads/);
   assert.match(page, /聯絡資訊僅供哩來愛爾蘭就本次報名或諮詢與您聯繫使用/);
   assert.match(page, /依個人資料保護法妥善處理/);
@@ -183,6 +191,32 @@ test("keeps the form handoff contract explicit", async () => {
   assert.doesNotMatch(styles, /\.boundary-(?:fit|gift)\s*\{[^}]*linear-gradient/);
   assert.equal((styles.match(/@font-face\s*\{/g) ?? []).length, 9);
   assert.equal((styles.match(/font-display:\s*swap;/g) ?? []).length, 9);
+  assert.equal((styles.match(/url\("\/language-school-signup\/fonts\//g) ?? []).length, 9);
+  assert.match(paths, /APP_BASE_PATH\s*=\s*"\/language-school-signup"/);
+  assert.match(paths, /APPLICATION_API_PATH\s*=\s*appPath\("\/api\/applications"\)/);
+  assert.match(api, /fetch\(APPLICATION_API_PATH/);
+  assert.match(viteConfig, /nextConfig:\s*\{[\s\S]*?basePath:\s*"\/language-school-signup"[\s\S]*?trailingSlash:\s*true/);
+  assert.match(layout, /PRODUCTION_LANDING_URL/);
+  assert.match(layout, /hostname === "lilaiireland\.com"/);
+  assert.match(router, /hasAppBasePath/);
+  assert.match(router, /pathname === "\/api\/applications"/);
+  assert.match(router, /if \(hasAppBasePath\)[\s\S]*?api_not_found/);
+  assert.match(applicationRoute, /APPLICATION_RATE_LIMITER\.limit/);
+  assert.match(applicationRoute, /language-school-signup:application-submit/);
+  assert.match(applicationRoute, /errorResponse\(429, "rate_limited"/);
+  assert.match(applicationRoute, /"Retry-After": "60"/);
+  assert.match(applicationRoute, /verifyTurnstile\(request, env, body\.turnstileToken\)/);
+  assert.match(turnstile, /TURNSTILE_ACTION\s*=\s*"application_submit"/);
+  assert.match(turnstile, /result\.success !== true/);
+  assert.match(turnstile, /result\.action !== TURNSTILE_ACTION/);
+  assert.match(turnstile, /!hostnames\.has\(hostname\)/);
+  assert.doesNotMatch(turnstile, /localhost|127\.0\.0\.1/);
+  assert.match(turnstileWidget, /challenges\.cloudflare\.com\/turnstile\/v0\/api\.js\?render=explicit/);
+  assert.match(page, /<TurnstileWidget/);
+  assert.match(wranglerSource, /"name": "APPLICATION_RATE_LIMITER"/);
+  assert.match(wranglerSource, /"TURNSTILE_SECRET"/);
+  assert.match(wranglerSource, /"TURNSTILE_SITE_KEY"/);
+  assert.match(wranglerSource, /"TURNSTILE_HOSTNAMES"/);
   assert.match(styles, /font-family:\s*"Lilai Noto Sans TC";[\s\S]*?NotoSansTC-Regular\.woff2[\s\S]*?font-weight:\s*400;/);
   assert.match(styles, /font-family:\s*"Lilai Noto Sans TC";[\s\S]*?NotoSansTC-Black\.woff2[\s\S]*?font-weight:\s*900;/);
   assert.match(styles, /font-family:\s*"Lilai Noto Serif TC";[\s\S]*?NotoSerifTC-Regular\.woff2[\s\S]*?font-weight:\s*400;/);

@@ -41,6 +41,10 @@ export default defineConfig(async () => {
       : undefined,
     plugins: [
       vinext({
+        nextConfig: {
+          basePath: "/language-school-signup",
+          trailingSlash: true,
+        },
         cache: { data: kvDataAdapter(), cdn: cdnAdapter() },
         images: { optimizer: imagesOptimizer() },
         prerender: { routes: "*" },

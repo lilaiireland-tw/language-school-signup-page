@@ -33,8 +33,9 @@ import {
   UsersRound,
   type LucideIcon,
 } from "lucide-react";
-import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
+import { FormEvent, ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { RevealController } from "./components/reveal-controller";
+import { TurnstileWidget } from "./components/turnstile-widget";
 import { submitDirectApplication } from "./lib/api";
 import { trackEvent } from "./lib/analytics";
 import { courseOptions, testimonials } from "./lib/data";
@@ -43,6 +44,7 @@ import { ACCOMMODATION_TERMS, CONSULTATION_TERMS, DIRECT_APPLICATION_TERMS, LEEV
 import { evaluateDirectApplicationReadiness } from "./lib/application/readiness";
 import { sanitizeApplicationPayload } from "./lib/application/sanitize";
 import { getSchoolOptionsForCity, visiblePartnerSchools } from "./lib/schools";
+import { appPath } from "./lib/site-paths";
 import type { DirectApplicationFormData } from "./lib/types";
 
 const consultationUrl = BRAND_LINKS.consultation;
@@ -90,7 +92,7 @@ const cn = (...values: Array<string | false | undefined>) => values.filter(Boole
 function Logo({ inverse = false }: { inverse?: boolean }) {
   return (
     <a href="#top" className="logo" aria-label="哩來愛爾蘭首頁區塊">
-      <img className={cn("logo-image", inverse && "logo-image-inverse")} src="/lilai-assets/lilai-logo.png" alt="" />
+      <img className={cn("logo-image", inverse && "logo-image-inverse")} src={appPath("/lilai-assets/lilai-logo.png")} alt="" />
       <span>
         <strong className={inverse ? "text-white" : "text-primary-dark"}>哩來愛爾蘭</strong>
         <small className={inverse ? "text-white/65" : "text-muted"}>Lilai Ireland</small>
@@ -171,7 +173,7 @@ export function HeroSection() {
         <div className="hero-visual" aria-label="哩來愛爾蘭在地學長姐 Alex 與 Arsha">
           <div className="route-lines" aria-hidden="true"><i /><i /><i /><i /></div>
           <div className="georgian-door" aria-hidden="true"><div className="door-fan"><span /><span /><span /><span /><span /></div><div className="door-panel"><i /><i /><b /></div></div>
-          <img className="mentor-cutout" src="/lilai-assets/alex-arsha-cutout.png" alt="哩來愛爾蘭在地學長姐 Alex 與 Arsha" />
+          <img className="mentor-cutout" src={appPath("/lilai-assets/alex-arsha-cutout.png")} alt="哩來愛爾蘭在地學長姐 Alex 與 Arsha" />
           <div className="mentor-caption"><span>IRELAND, ON THE GROUND</span><strong>Alex &amp; Arsha</strong><small>在愛爾蘭生活的學長姐</small></div>
           <div className="visual-pin"><MapPin size={18} /> DUBLIN</div>
         </div>
@@ -214,11 +216,11 @@ type GiftPackageItem = { label: string; visible: boolean };
 function GiftPackageList({ items }: { items: GiftPackageItem[] }) { return <ul className="gift-content-list">{items.filter((item) => item.visible).map((item) => <li key={item.label}><Check size={17} />{item.label}</li>)}</ul>; }
 
 function SupportCardMedia({ type }: { type: "handbooks" | "job" | "network" | "ai" | "isic" }) {
-  if (type === "handbooks") return <div className="support-card-media support-card-media-handbooks"><img className="handbook-page handbook-page-pre" src="/lilai-assets/gift-support/pre-departure-handbook-page.png" alt="愛爾蘭行前手冊預覽" loading="lazy" /><img className="handbook-page handbook-page-arrival" src="/lilai-assets/gift-support/arrival-handbook-page.png" alt="愛爾蘭開局手冊預覽" loading="lazy" /></div>;
-  if (type === "job") return <div className="support-card-media support-card-media-wide"><img src="/lilai-assets/gift-support/job-guide.png" alt="服務業求職攻略手冊封面" loading="lazy" /></div>;
-  if (type === "network") return <div className="support-card-media support-card-media-network"><figure><span>4 週以上短期課程</span><img src="/lilai-assets/gift-support/billion-connect-esim.png" alt="Billion Connect 歐洲地區 eSIM" loading="lazy" /></figure><figure><span>25+8 長期課程</span><img src="/lilai-assets/gift-support/three-super-surfer.png" alt="28 日 Three Super Surfer 方案" loading="lazy" /></figure></div>;
-  if (type === "isic") return <div className="support-card-media support-card-media-isic"><img src="/lilai-assets/gift-support/isic-card.png" alt="ISIC 國際學生證示意圖（僅限 25+8 學生）" loading="lazy" /></div>;
-  return <div className="support-card-media support-card-media-wide support-card-media-ai"><img src="/lilai-assets/gift-support/relai-ai-system.png" alt="ReLai AI 英語練功系統介面預覽" loading="lazy" /></div>;
+  if (type === "handbooks") return <div className="support-card-media support-card-media-handbooks"><img className="handbook-page handbook-page-pre" src={appPath("/lilai-assets/gift-support/pre-departure-handbook-page.png")} alt="愛爾蘭行前手冊預覽" loading="lazy" /><img className="handbook-page handbook-page-arrival" src={appPath("/lilai-assets/gift-support/arrival-handbook-page.png")} alt="愛爾蘭開局手冊預覽" loading="lazy" /></div>;
+  if (type === "job") return <div className="support-card-media support-card-media-wide"><img src={appPath("/lilai-assets/gift-support/job-guide.png")} alt="服務業求職攻略手冊封面" loading="lazy" /></div>;
+  if (type === "network") return <div className="support-card-media support-card-media-network"><figure><span>4 週以上短期課程</span><img src={appPath("/lilai-assets/gift-support/billion-connect-esim.png")} alt="Billion Connect 歐洲地區 eSIM" loading="lazy" /></figure><figure><span>25+8 長期課程</span><img src={appPath("/lilai-assets/gift-support/three-super-surfer.png")} alt="28 日 Three Super Surfer 方案" loading="lazy" /></figure></div>;
+  if (type === "isic") return <div className="support-card-media support-card-media-isic"><img src={appPath("/lilai-assets/gift-support/isic-card.png")} alt="ISIC 國際學生證示意圖（僅限 25+8 學生）" loading="lazy" /></div>;
+  return <div className="support-card-media support-card-media-wide support-card-media-ai"><img src={appPath("/lilai-assets/gift-support/relai-ai-system.png")} alt="ReLai AI 英語練功系統介面預覽" loading="lazy" /></div>;
 }
 
 export function AudienceQualificationCard({ icon: Icon, title, children }: { icon: LucideIcon; title: string; children: ReactNode }) {
@@ -236,7 +238,7 @@ export function PartnerSchoolSection() {
   const citySchools = visiblePartnerSchools.filter((school) => school.city === activeCity);
   const visibleSchools = activeCity === "Dublin" && !showAllDublin ? citySchools.slice(0, 8) : citySchools;
 
-  return <section className="section partner-schools-section"><div className="shell"><SectionHeading eyebrow="PARTNER SCHOOLS" title="哩來合作語校" subtitle="以下語校皆可在直接報名表中指定；如果城市或學校尚未確定，請選擇一對一語校諮詢，由我們一起確認適合的方向。" /><div className="school-city-tabs" role="tablist" aria-label="依城市查看合作語校">{cities.map((city) => <button type="button" role="tab" aria-selected={activeCity === city} aria-controls="partner-school-panel" className={cn("school-city-tab", activeCity === city && "is-active")} key={city} onClick={() => { setActiveCity(city); setShowAllDublin(false); }}>{city}<span>{visiblePartnerSchools.filter((school) => school.city === city).length}</span></button>)}</div><div className="partner-school-grid" id="partner-school-panel" role="tabpanel">{visibleSchools.map((school) => <article className="partner-school-card" key={school.id}><div className={cn("partner-school-logo", school.logoSize && `partner-school-logo-${school.logoSize}`)}><img src={`/lilai-assets/schools/${school.logo}`} alt={`${school.name} 校徽`} loading="lazy" /></div><div><h3>{school.name}</h3><span><MapPin size={13} />{school.city}</span></div></article>)}</div>{activeCity === "Dublin" && citySchools.length > 8 && <div className="partner-school-actions"><button type="button" className="button button-secondary" aria-expanded={showAllDublin} aria-controls="partner-school-panel" onClick={() => setShowAllDublin((current) => !current)}>{showAllDublin ? "收合語校" : "查看更多語校"}</button></div>}<p className="partner-school-note">合作課程、開課日、名額與最新報價，仍以哩來向校方確認後提供的資訊為準。</p></div></section>;
+  return <section className="section partner-schools-section"><div className="shell"><SectionHeading eyebrow="PARTNER SCHOOLS" title="哩來合作語校" subtitle="以下語校皆可在直接報名表中指定；如果城市或學校尚未確定，請選擇一對一語校諮詢，由我們一起確認適合的方向。" /><div className="school-city-tabs" role="tablist" aria-label="依城市查看合作語校">{cities.map((city) => <button type="button" role="tab" aria-selected={activeCity === city} aria-controls="partner-school-panel" className={cn("school-city-tab", activeCity === city && "is-active")} key={city} onClick={() => { setActiveCity(city); setShowAllDublin(false); }}>{city}<span>{visiblePartnerSchools.filter((school) => school.city === city).length}</span></button>)}</div><div className="partner-school-grid" id="partner-school-panel" role="tabpanel">{visibleSchools.map((school) => <article className="partner-school-card" key={school.id}><div className={cn("partner-school-logo", school.logoSize && `partner-school-logo-${school.logoSize}`)}><img src={appPath(`/lilai-assets/schools/${school.logo}`)} alt={`${school.name} 校徽`} loading="lazy" /></div><div><h3>{school.name}</h3><span><MapPin size={13} />{school.city}</span></div></article>)}</div>{activeCity === "Dublin" && citySchools.length > 8 && <div className="partner-school-actions"><button type="button" className="button button-secondary" aria-expanded={showAllDublin} aria-controls="partner-school-panel" onClick={() => setShowAllDublin((current) => !current)}>{showAllDublin ? "收合語校" : "查看更多語校"}</button></div>}<p className="partner-school-note">合作課程、開課日、名額與最新報價，仍以哩來向校方確認後提供的資訊為準。</p></div></section>;
 }
 
 function BulletList({ items, muted = false }: { items: string[]; muted?: boolean }) {
@@ -339,6 +341,13 @@ export function MultiStepApplicationForm() {
   const [errors, setErrors] = useState<Errors>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+  const handleTurnstileToken = useCallback((token: string) => {
+    setTurnstileToken(token);
+    if (token) setErrors((current) => ({ ...current, turnstile: "" }));
+  }, []);
+  const handleTurnstileError = useCallback((message: string) => setErrors((current) => ({ ...current, turnstile: message })), []);
 
   const isConsultation = form.serviceType === "consultation";
   const isicOfferIncluded = form.serviceType === "direct_application";
@@ -347,6 +356,8 @@ export function MultiStepApplicationForm() {
     setSubmitted(false);
     setStep(1);
     setErrors({});
+    setTurnstileToken("");
+    setTurnstileResetKey((current) => current + 1);
     setForm((current) => intent === "consultation" ? {
       ...current,
       serviceType: "consultation",
@@ -433,9 +444,11 @@ export function MultiStepApplicationForm() {
     setStep((current) => current + 1); document.getElementById("direct-application-form")?.scrollIntoView({ block: "start" });
   };
   const submit = async (event: FormEvent) => {
-    event.preventDefault(); if (!validate(3)) return; setSubmitting(true); setErrors((current) => ({ ...current, submit: "" }));
-    try { const readiness = evaluateDirectApplicationReadiness(form); const payload = sanitizeApplicationPayload(form); await submitDirectApplication(payload); trackEvent(isConsultation ? "consultation_request_submit" : "direct_application_submit", { isicOfferIncluded, requiresConsultationReview: readiness.requiresConsultationReview }); setSubmitted(true); }
-    catch (error) { setErrors((current) => ({ ...current, submit: error instanceof Error ? error.message : "報名資料送出失敗，請稍後再試。" })); }
+    event.preventDefault(); if (!validate(3)) return;
+    if (!turnstileToken) { setErrors((current) => ({ ...current, turnstile: "請先完成安全驗證。" })); return; }
+    setSubmitting(true); setErrors((current) => ({ ...current, submit: "", turnstile: "" }));
+    try { const readiness = evaluateDirectApplicationReadiness(form); const payload = sanitizeApplicationPayload(form); await submitDirectApplication(payload, turnstileToken); trackEvent(isConsultation ? "consultation_request_submit" : "direct_application_submit", { isicOfferIncluded, requiresConsultationReview: readiness.requiresConsultationReview }); setSubmitted(true); }
+    catch (error) { setErrors((current) => ({ ...current, submit: error instanceof Error ? error.message : "報名資料送出失敗，請稍後再試。" })); setTurnstileResetKey((current) => current + 1); }
     finally { setSubmitting(false); }
   };
 
@@ -448,6 +461,8 @@ export function MultiStepApplicationForm() {
     {step === 2 && <fieldset><legend>{isConsultation ? "告訴我們你的出發方向" : "你的語校報名計畫"}</legend>{isConsultation && <div className="consultation-prefill"><CircleHelp size={22} /><div><strong>不用先決定語校</strong><p>城市、課程或時間尚未確定都可以選擇「尚未確定」，諮詢時再一起比較。</p></div></div>}<div className="field-grid"><Field label={isConsultation ? "目前偏好的城市" : "想報名的城市"} name="preferredCity" required error={errors.preferredCity}><select id="preferredCity" value={form.preferredCity} onChange={(e) => update("preferredCity", e.target.value)}><option value="">請選擇</option>{["Dublin", "Cork", "Galway", "Limerick", "其他", ...(isConsultation ? ["尚未確定"] : [])].map(option => <option key={option}>{option}</option>)}</select></Field>{!isConsultation && <Field label="想報名的學校" name="preferredSchool" required error={errors.preferredSchool}><select id="preferredSchool" value={form.preferredSchool} onChange={(e) => update("preferredSchool", e.target.value)}><option value="">請選擇</option>{schoolOptions.map(option => <option key={option}>{option}</option>)}</select></Field>}{!isConsultation && form.preferredSchool === "其他指定學校" && <Field label="指定學校名稱" name="customSchool" required error={errors.customSchool}><input id="customSchool" maxLength={200} value={form.customSchool} onChange={(e) => update("customSchool", e.target.value)} /></Field>}<Field label={isConsultation ? "目前感興趣的課程" : "課程類型"} name="courseType" required error={errors.courseType}><select id="courseType" value={form.courseType} onChange={(e) => update("courseType", e.target.value)}><option value="">請選擇</option>{courseOptions.filter(option => isConsultation || !uncertainOptionValues.has(option.label)).map(option => <option key={option.label}>{option.label}</option>)}</select></Field>{isConsultation ? <Field label="預計何時出發" name="expectedStartMonth" required error={errors.expectedStartMonth}><select id="expectedStartMonth" value={form.expectedStartMonth} onChange={(e) => update("expectedStartMonth", e.target.value)}><option value="">請選擇</option>{["3 個月內", "3–6 個月內", "半年後", "尚未確定"].map(option => <option key={option}>{option}</option>)}</select></Field> : <Field label="預計開課年月" name="expectedStartMonth" required error={errors.expectedStartMonth}><input id="expectedStartMonth" type="month" value={form.expectedStartMonth} onChange={(e) => update("expectedStartMonth", e.target.value)} /></Field>}<Field label={isConsultation ? "目前考慮的就讀週數" : "預計就讀週數"} name="courseDuration" required error={errors.courseDuration}><select id="courseDuration" value={form.courseDuration} onChange={(e) => update("courseDuration", e.target.value)}><option value="">請選擇</option>{["4 週以下", "4–12 週", "13–24 週", "25 週以上", "25+8 課程", "其他", ...(isConsultation ? ["尚未確定"] : [])].map(option => <option key={option}>{option}</option>)}</select></Field><Field label="偏好上課時段" name="classSchedule"><select id="classSchedule" value={form.classSchedule} onChange={(e) => update("classSchedule", e.target.value)}><option value="">請選擇</option>{["上午", "下午", "皆可", ...(isConsultation ? ["尚未確定"] : [])].map(option => <option key={option}>{option}</option>)}</select></Field><Field label="是否需要住宿協助" name="accommodationNeeded" required error={errors.accommodationNeeded}><select id="accommodationNeeded" value={form.accommodationNeeded} onChange={(e) => updateAccommodation(e.target.value)}><option value="">請選擇</option>{["需要", "不需要", ...(isConsultation ? ["尚未確定"] : [])].map(option => <option key={option}>{option}</option>)}</select></Field>{form.accommodationNeeded && form.accommodationNeeded !== "不需要" && <div className="field-full"><Field label="是否想參考哩來合作的 Leevin Stay Hostel／Stay Student？" name="partnerAccommodationInterest" required error={errors.partnerAccommodationInterest} hint={accommodationFeeHint}><select id="partnerAccommodationInterest" value={form.partnerAccommodationInterest} onChange={(e) => update("partnerAccommodationInterest", e.target.value)}><option value="">請選擇</option>{["想參考 Leevin Stay Hostel", "想參考 Leevin Stay Student", "兩者都想了解", "暫時不需要"].map(option => <option key={option}>{option}</option>)}</select></Field></div>}<Field label="是否已取得其他報價" name="quoteStatus"><select id="quoteStatus" value={form.quoteStatus} onChange={(e) => update("quoteStatus", e.target.value)}><option value="">請選擇</option>{["尚未取得", "已由學校取得", "已由其他代辦取得", "曾與哩來聯繫過"].map(option => <option key={option}>{option}</option>)}</select></Field></div>{isicOfferIncluded && <div className="eligibility-hint"><BadgeCheck size={22} /><p><strong>你選擇的是直接報名語校</strong>不使用一對一選校諮詢者可加贈 ISIC 國際學生證（僅限 25+8 學生）；最終仍須符合全日制學生資格並通過文件審核。</p></div>}</fieldset>}
     {step === 3 && <fieldset><legend>{isConsultation ? "這次最想解決什麼問題？" : "確認你目前的準備進度"}</legend>{isConsultation ? <Field label="選一個最接近你目前需求的選項" name="consultationGoal" required error={errors.consultationGoal}><div className="radio-stack">{["比較城市與生活成本", "比較語校與課程差異", "評估學費、住宿與整體預算", "規劃 25+8 打工遊學", "還不確定，想從頭一起討論"].map(option => <label key={option}><input type="radio" name="consultationGoal" value={option} checked={form.consultationGoal === option} onChange={(e) => update("consultationGoal", e.target.value)} /><span>{option}</span></label>)}</div></Field> : <><Field label="你目前的進度最接近哪一項？" name="decisionStage" required error={errors.decisionStage}><div className="radio-stack">{["我已確認主要學校及課程，可以直接報名", "我大致選好，只需要確認少量細節", "我仍需要完整比較不同學校或城市"].map(option => <label key={option}><input type="radio" name="decisionStage" value={option} checked={form.decisionStage === option} onChange={(e) => update("decisionStage", e.target.value)} /><span>{option}</span></label>)}</div></Field>{form.decisionStage === "我仍需要完整比較不同學校或城市" && <div className="recommendation-card"><CircleHelp size={24} /><div><strong>一對一語校諮詢可能更適合</strong><p>若你仍需要完整比較不同學校、城市或預算，一對一語校諮詢會比直接報名更適合。</p><TrackedLink href={consultationUrl} event="consultation_redirect_from_application_form" intent="consultation" className="text-link">改填一對一諮詢需求 <ArrowRight size={16} /></TrackedLink></div></div>}</>}<div className="field-grid"><Field label="預計學費＋住宿預算" name="budgetRange" required error={errors.budgetRange} hint="歐元金額為約數，實際依付款當日匯率為準"><select id="budgetRange" value={form.budgetRange} onChange={(e) => update("budgetRange", e.target.value)}><option value="">請選擇</option>{["NT$150,000 以下（約 €4,100 以下）", "NT$150,000–200,000（約 €4,100–€5,500）", "NT$200,000–250,000（約 €5,500–€6,900）", "NT$250,000–300,000（約 €6,900–€8,300）", "NT$300,000 以上（約 €8,300 以上）", ...(isConsultation ? ["尚未確認"] : [])].map(option => <option key={option}>{option}</option>)}</select></Field><Field label="如何得知哩來愛爾蘭" name="discoverySource"><select id="discoverySource" value={form.discoverySource} onChange={(e) => update("discoverySource", e.target.value)}><option value="">請選擇</option>{["Google 搜尋", "Instagram", "Threads", "YouTube", "朋友推薦（請朋友私訊我們登記才享推薦好禮）", "說明會", "其他"].map(option => <option key={option}>{option}</option>)}</select></Field><div className="field-full"><Field label={isConsultation ? "還有什麼希望我們先知道？" : "其他希望我們確認的事項"} name="additionalNotes" hint={isConsultation ? "例如：最擔心的問題、偏好的生活方式，或任何尚未確定的地方。" : "請填寫必要的報名細節，不需在此提供護照或其他敏感文件。"}><textarea id="additionalNotes" maxLength={2000} rows={4} value={form.additionalNotes} onChange={(e) => update("additionalNotes", e.target.value)} /></Field></div></div><div className="agreements"><h3>送出前，請確認以下事項</h3>{(isConsultation ? consultationAgreementTexts : agreementTexts).map((text, index) => { const key = `agreement-${index}`; return <div key={key}><label className="checkbox-row"><input type="checkbox" checked={!!form.agreements[key]} onChange={(e) => { setForm(current => ({ ...current, agreements: { ...current.agreements, [key]: e.target.checked } })); setErrors(current => ({ ...current, [key]: "" })); }} /><span>{text}</span></label>{errors[key] && <p className="error-text">{errors[key]}</p>}</div>; })}{isicOfferIncluded && <div className="isic-agreement"><label className="checkbox-row"><input type="checkbox" checked={!!form.agreements.isic} onChange={(e) => { setForm(current => ({ ...current, agreements: { ...current.agreements, isic: e.target.checked } })); if (e.target.checked) trackEvent("isic_eligibility_checkbox_checked"); setErrors(current => ({ ...current, isic: "" })); }} /><span>{isicAgreement}</span></label>{errors.isic && <p className="error-text">{errors.isic}</p>}</div>}</div></fieldset>}
     {(["utmSource", "utmMedium", "utmCampaign", "utmContent", "utmTerm", "gclid", "landingPageUrl"] as const).map(name => <input key={name} type="hidden" name={name} value={String(form[name])} />)}
+    {step === 3 && <TurnstileWidget resetKey={turnstileResetKey} onToken={handleTurnstileToken} onError={handleTurnstileError} />}
+    {errors.turnstile && <p className="error-text" role="alert">{errors.turnstile}</p>}
     {errors.submit && <p className="error-text" role="alert">{errors.submit}</p>}
     <div className="form-actions">{step > 1 && <button type="button" className="button button-ghost" onClick={() => setStep(current => current - 1)}>返回上一步</button>}{step < 3 ? <button type="button" className="button button-primary" onClick={nextStep}>下一步 <ArrowRight size={18} /></button> : <div className="submit-wrap"><button type="submit" className="button button-primary button-large" disabled={submitting}>{submitting ? "正在送出…" : isConsultation ? "送出一對一諮詢需求" : "提交直接報名需求"} {!submitting && <ArrowRight size={18} />}</button><small>{isConsultation ? "送出後，哩來會透過 Email 聯絡後續預約方式。" : "送出表單不代表報名成立，也不會立即產生付款。"}</small></div>}</div>
   </form></div></section>;
@@ -480,7 +495,7 @@ export function AccommodationSupportSection() {
         <div className="accommodation-options">
           <article className="accommodation-option-card">
             <div className="accommodation-photo">
-              <img src="/lilai-assets/leevin/faci06-1024x683.jpg" alt="Leevin Stay Hostel 公共空間" loading="lazy" />
+              <img src={appPath("/lilai-assets/leevin/faci06-1024x683.jpg")} alt="Leevin Stay Hostel 公共空間" loading="lazy" />
               <span>青年旅館</span>
             </div>
             <div className="accommodation-option-copy">
@@ -492,7 +507,7 @@ export function AccommodationSupportSection() {
           </article>
           <article className="accommodation-option-card">
             <div className="accommodation-photo">
-              <img src="/lilai-assets/leevin/Layer-2.png" alt="Leevin Stay Student 住宅式學生住宿房間" loading="lazy" />
+              <img src={appPath("/lilai-assets/leevin/Layer-2.png")} alt="Leevin Stay Student 住宅式學生住宿房間" loading="lazy" />
               <span>學生住宿</span>
             </div>
             <div className="accommodation-option-copy">
@@ -531,7 +546,7 @@ export function AccommodationSupportSection() {
 }
 
 export function BrandProofSection() {
-  return <section className="section brand-proof"><div className="shell brand-proof-grid"><div className="brand-proof-copy"><span className="eyebrow">ALEX &amp; ARSHA COMMUNITY</span><h2>不只把你送到學校，<br />而是陪你在愛爾蘭開始生活</h2><p>哩來由正在愛爾蘭生活的學長姐 Alex &amp; Arsha 創立。我們把自己走過的路、踩過的坑與整理過的資源，轉化成出發前後都能用得上的陪伴。</p><p>從申請、文件到落地後的 Coffee Chat 與生活圈，讓你知道抵達後仍找得到人、問得到問題。</p><a className="text-link" href="https://lilaiireland.com/about/">認識學長姐 Alex &amp; Arsha <ArrowRight size={16} /></a></div><div className="community-collage" aria-label="哩來愛爾蘭生活圈真實活動照片"><figure className="community-photo community-photo-main"><img src="/lilai-assets/community-seaside.jpg" alt="哩來愛爾蘭學弟妹在海邊團體合照" loading="lazy" /><figcaption>城市探索與出遊</figcaption></figure><figure className="community-photo community-photo-side"><img src="/lilai-assets/community-extra-01.jpg" alt="哩來愛爾蘭生活圈聚會" loading="lazy" /><figcaption>哩來生活圈</figcaption></figure></div></div></section>;
+  return <section className="section brand-proof"><div className="shell brand-proof-grid"><div className="brand-proof-copy"><span className="eyebrow">ALEX &amp; ARSHA COMMUNITY</span><h2>不只把你送到學校，<br />而是陪你在愛爾蘭開始生活</h2><p>哩來由正在愛爾蘭生活的學長姐 Alex &amp; Arsha 創立。我們把自己走過的路、踩過的坑與整理過的資源，轉化成出發前後都能用得上的陪伴。</p><p>從申請、文件到落地後的 Coffee Chat 與生活圈，讓你知道抵達後仍找得到人、問得到問題。</p><a className="text-link" href="https://lilaiireland.com/about/">認識學長姐 Alex &amp; Arsha <ArrowRight size={16} /></a></div><div className="community-collage" aria-label="哩來愛爾蘭生活圈真實活動照片"><figure className="community-photo community-photo-main"><img src={appPath("/lilai-assets/community-seaside.jpg")} alt="哩來愛爾蘭學弟妹在海邊團體合照" loading="lazy" /><figcaption>城市探索與出遊</figcaption></figure><figure className="community-photo community-photo-side"><img src={appPath("/lilai-assets/community-extra-01.jpg")} alt="哩來愛爾蘭生活圈聚會" loading="lazy" /><figcaption>哩來生活圈</figcaption></figure></div></div></section>;
 }
 
 export function GiftPackageSection() {
@@ -701,7 +716,7 @@ export function SeminarHighlightsSection() {
   );
 }
 
-export function TestimonialCard({ item }: { item: typeof testimonials[number] }) { return <article className="testimonial-card"><div className="review-card-top"><strong>{item.name}</strong><span><img src="/lilai-assets/google-logo.png" alt="Google" />評論</span></div><div className="stars" aria-label="5 顆星">★★★★★</div><p>「{item.quote}」</p><div className="review-tags">{item.tags.map(tag => <span key={tag}>{tag}</span>)}</div></article>; }
+export function TestimonialCard({ item }: { item: typeof testimonials[number] }) { return <article className="testimonial-card"><div className="review-card-top"><strong>{item.name}</strong><span><img src={appPath("/lilai-assets/google-logo.png")} alt="Google" />評論</span></div><div className="stars" aria-label="5 顆星">★★★★★</div><p>「{item.quote}」</p><div className="review-tags">{item.tags.map(tag => <span key={tag}>{tag}</span>)}</div></article>; }
 export function TestimonialsSection() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const pauseUntilRef = useRef(0);

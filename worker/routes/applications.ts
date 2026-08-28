@@ -1,10 +1,15 @@
 import { submitApplication } from "../services/application-service";
 import { HttpError, errorResponse, jsonResponse, readJson } from "../shared/http";
 import { parseApplicationInput } from "../validation/application-schema";
+import { verifyTurnstile } from "../security/turnstile";
 
 export async function handleCreateApplication(request: Request, env: Cloudflare.Env): Promise<Response> {
   try {
-    const input = parseApplicationInput(await readJson(request));
+    const rateLimit = await env.APPLICATION_RATE_LIMITER.limit({ key: "language-school-signup:application-submit" });
+    if (!rateLimit.success) return errorResponse(429, "rate_limited", "送出次數過於頻繁，請稍後再試。", undefined, { "Retry-After": "60" });
+    const body = await readJson(request) as Record<string, unknown>;
+    await verifyTurnstile(request, env, body.turnstileToken);
+    const input = parseApplicationInput(body);
     const result = await submitApplication(env.DB, input, request.headers.get("Idempotency-Key") ?? undefined);
     if (!result.duplicate) {
       try {

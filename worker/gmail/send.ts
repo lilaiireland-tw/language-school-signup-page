@@ -66,9 +66,17 @@ export async function sendGmailMessage(raw: string, accessToken: string, fetcher
 }
 
 export async function sendApplicationEmail(application: ApplicationRow, jobType: "student_email" | "internal_email", env: Cloudflare.Env, fetcher: HttpFetch = fetch): Promise<string> {
-  if (env.GMAIL_SENDER_EMAIL !== EXPECTED_GMAIL_SENDER) throw new IntegrationError("Gmail sender email is misconfigured", false);
-  const accessToken = await getGmailAccessToken({ clientId: env.GMAIL_CLIENT_ID, clientSecret: env.GMAIL_CLIENT_SECRET, refreshToken: env.GMAIL_REFRESH_TOKEN }, fetcher);
+  const { GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, GMAIL_SENDER_EMAIL } = env;
+  if (GMAIL_SENDER_EMAIL !== EXPECTED_GMAIL_SENDER) throw new IntegrationError("Gmail sender email is misconfigured", false);
+  if (!GMAIL_CLIENT_ID || !GMAIL_CLIENT_SECRET || !GMAIL_REFRESH_TOKEN) {
+    throw new IntegrationError("Gmail OAuth is not configured", false);
+  }
+  const accessToken = await getGmailAccessToken({
+    clientId: GMAIL_CLIENT_ID,
+    clientSecret: GMAIL_CLIENT_SECRET,
+    refreshToken: GMAIL_REFRESH_TOKEN,
+  }, fetcher);
   const content = emailContent(application, jobType, env);
-  const mime = buildMimeMessage(content.to, content.subject, content.text, env.GMAIL_SENDER_EMAIL, env.EMAIL_REPLY_TO, content.html);
+  const mime = buildMimeMessage(content.to, content.subject, content.text, GMAIL_SENDER_EMAIL, env.EMAIL_REPLY_TO, content.html);
   return sendGmailMessage(encodeBase64Url(mime), accessToken, fetcher);
 }

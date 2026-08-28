@@ -17,6 +17,16 @@
   "images": {
     "binding": "IMAGES"
   },
+  "ratelimits": [
+    {
+      "name": "APPLICATION_RATE_LIMITER",
+      "namespace_id": "76082801",
+      "simple": {
+        "limit": 30,
+        "period": 60
+      }
+    }
+  ],
   "d1_databases": [
     {
       "binding": "DB",
@@ -61,7 +71,10 @@
       "GMAIL_REFRESH_TOKEN",
       "GMAIL_SENDER_EMAIL",
       "NOTION_TOKEN",
-      "NOTION_DATABASE_ID"
+      "NOTION_DATABASE_ID",
+      "TURNSTILE_SECRET",
+      "TURNSTILE_SITE_KEY",
+      "TURNSTILE_HOSTNAMES"
     ]
   },
   "observability": {
@@ -94,6 +107,16 @@
       "images": {
         "binding": "IMAGES"
       },
+      "ratelimits": [
+        {
+          "name": "APPLICATION_RATE_LIMITER",
+          "namespace_id": "76082802",
+          "simple": {
+            "limit": 30,
+            "period": 60
+          }
+        }
+      ],
       "secrets": {
         "required": []
       },

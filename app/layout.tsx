@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import { PRODUCTION_LANDING_URL, appPath } from "./lib/site-paths";
 import "./globals.css";
 
 const title = "愛爾蘭語校直接報名與選校協助｜哩來愛爾蘭";
@@ -10,17 +11,19 @@ export async function generateMetadata(): Promise<Metadata> {
   const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "example.com";
   const protocol = requestHeaders.get("x-forwarded-proto") ?? (host.includes("localhost") ? "http" : "https");
   const baseUrl = new URL(`${protocol}://${host}`);
-  const noindex = process.env.NEXT_PUBLIC_NOINDEX === "true";
+  const hostname = host.split(":")[0].toLowerCase();
+  const isProductionHostname = hostname === "lilaiireland.com" || hostname === "www.lilaiireland.com";
+  const noindex = process.env.NEXT_PUBLIC_NOINDEX === "true" || !isProductionHostname;
 
   return {
     title,
     description,
     metadataBase: baseUrl,
-    alternates: { canonical: "https://lilaiireland.com/" },
-    openGraph: { title, description, type: "website", locale: "zh_TW", images: [{ url: "/og.png", width: 1734, height: 907, alt: "哩來愛爾蘭語校直接報名" }] },
-    twitter: { card: "summary_large_image", title, description, images: ["/og.png"] },
+    alternates: { canonical: PRODUCTION_LANDING_URL },
+    openGraph: { title, description, type: "website", locale: "zh_TW", url: PRODUCTION_LANDING_URL, images: [{ url: appPath("/og.png"), width: 1734, height: 907, alt: "哩來愛爾蘭語校直接報名" }] },
+    twitter: { card: "summary_large_image", title, description, images: [appPath("/og.png")] },
     robots: { index: !noindex, follow: !noindex },
-    icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
+    icons: { icon: appPath("/favicon.svg"), shortcut: appPath("/favicon.svg") },
   };
 }
 

@@ -29,7 +29,7 @@ const worker = {
       return errorResponse(500, "internal_error", "伺服器發生錯誤，請稍後再試。");
     }
 
-    if (url.pathname === "/_vinext/image") {
+    if (url.pathname === "/_vinext/image" || url.pathname === "/language-school-signup/_vinext/image") {
       const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];
       return handleImageOptimization(request, {
         fetchAsset: (path) => env.ASSETS.fetch(new Request(new URL(path, request.url))),

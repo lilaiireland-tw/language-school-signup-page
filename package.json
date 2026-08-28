@@ -13,6 +13,7 @@
     "test:gmail": "node --experimental-strip-types --test tests/gmail-oauth.test.ts tests/student-confirmation-email.test.ts",
     "test:frontend-review": "node --experimental-strip-types --test tests/frontend-business-logic.test.ts",
     "test:staging": "node --test tests/staging-isolation.test.mjs",
+    "test:turnstile": "node --experimental-strip-types --test tests/turnstile.test.ts",
     "gmail:authorize": "node scripts/generate-gmail-refresh-token.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",

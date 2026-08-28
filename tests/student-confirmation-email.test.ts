@@ -79,9 +79,18 @@ test("missing name and optional fields render safe fallbacks", () => {
 test("HTML is UTF-8, table based, responsive, and keeps required links", () => {
   const rendered = renderStudentConfirmationEmail(mapApplicationToStudentEmailData(application()));
   assert.match(rendered.html, /<meta charset="UTF-8">/);
-  assert.match(rendered.html, /max-width:640px/);
+  assert.match(rendered.html, /width="600"/);
+  assert.match(rendered.html, /max-width:600px/);
   assert.match(rendered.html, /<table role="presentation"/);
-  assert.ok(rendered.html.includes(BRAND_LINKS.website));
-  assert.ok(rendered.html.includes(BRAND_LINKS.instagram));
-  assert.match(rendered.text, /一起把夢，過成生活 ✨/);
+  assert.match(rendered.html, /bgcolor="#7C8F6E"/);
+  assert.match(rendered.html, /bgcolor="#EFF3EA"/);
+  assert.match(rendered.html, /bgcolor="#3A4A32"/);
+  assert.match(rendered.html, /Arial,'Microsoft JhengHei',sans-serif/);
+  assert.ok(rendered.html.includes(BRAND_LINKS.googleReviews));
+  for (const output of [rendered.html, rendered.text]) {
+    assert.match(output, /Alex (?:&amp;|&) Arsha｜Lilai Ireland 哩來愛爾蘭 共同創辦人/);
+    assert.match(output, /陪你把「出發」這件事，變得沒那麼可怕。/);
+    assert.match(output, /哩來 Google 評論 ⭐ 5\.0/);
+    assert.match(output, /一起把夢，過成生活 🌍✨/);
+  }
 });

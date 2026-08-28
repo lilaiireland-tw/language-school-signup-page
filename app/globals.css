@@ -4,7 +4,7 @@
    each face is fetched, and faces are only requested when their weight is used. */
 @font-face {
   font-family: "Lilai Noto Sans TC";
-  src: url("/fonts/NotoSansTC-Regular.woff2") format("woff2");
+  src: url("/language-school-signup/fonts/NotoSansTC-Regular.woff2") format("woff2");
   font-style: normal;
   font-weight: 400;
   font-display: swap;
@@ -12,7 +12,7 @@
 
 @font-face {
   font-family: "Lilai Noto Sans TC";
-  src: url("/fonts/NotoSansTC-Medium.woff2") format("woff2");
+  src: url("/language-school-signup/fonts/NotoSansTC-Medium.woff2") format("woff2");
   font-style: normal;
   font-weight: 500;
   font-display: swap;
@@ -20,7 +20,7 @@
 
 @font-face {
   font-family: "Lilai Noto Sans TC";
-  src: url("/fonts/NotoSansTC-SemiBold.woff2") format("woff2");
+  src: url("/language-school-signup/fonts/NotoSansTC-SemiBold.woff2") format("woff2");
   font-style: normal;
   font-weight: 600;
   font-display: swap;
@@ -28,7 +28,7 @@
 
 @font-face {
   font-family: "Lilai Noto Sans TC";
-  src: url("/fonts/NotoSansTC-Bold.woff2") format("woff2");
+  src: url("/language-school-signup/fonts/NotoSansTC-Bold.woff2") format("woff2");
   font-style: normal;
   font-weight: 700;
   font-display: swap;
@@ -36,7 +36,7 @@
 
 @font-face {
   font-family: "Lilai Noto Sans TC";
-  src: url("/fonts/NotoSansTC-ExtraBold.woff2") format("woff2");
+  src: url("/language-school-signup/fonts/NotoSansTC-ExtraBold.woff2") format("woff2");
   font-style: normal;
   font-weight: 800;
   font-display: swap;
@@ -44,7 +44,7 @@
 
 @font-face {
   font-family: "Lilai Noto Sans TC";
-  src: url("/fonts/NotoSansTC-Black.woff2") format("woff2");
+  src: url("/language-school-signup/fonts/NotoSansTC-Black.woff2") format("woff2");
   font-style: normal;
   font-weight: 900;
   font-display: swap;
@@ -52,7 +52,7 @@
 
 @font-face {
   font-family: "Lilai Noto Serif TC";
-  src: url("/fonts/NotoSerifTC-Regular.woff2") format("woff2");
+  src: url("/language-school-signup/fonts/NotoSerifTC-Regular.woff2") format("woff2");
   font-style: normal;
   font-weight: 400;
   font-display: swap;
@@ -60,7 +60,7 @@
 
 @font-face {
   font-family: "Lilai Noto Serif TC";
-  src: url("/fonts/NotoSerifTC-Bold.woff2") format("woff2");
+  src: url("/language-school-signup/fonts/NotoSerifTC-Bold.woff2") format("woff2");
   font-style: normal;
   font-weight: 700;
   font-display: swap;
@@ -68,7 +68,7 @@
 
 @font-face {
   font-family: "Lilai Noto Serif TC";
-  src: url("/fonts/NotoSerifTC-Black.woff2") format("woff2");
+  src: url("/language-school-signup/fonts/NotoSerifTC-Black.woff2") format("woff2");
   font-style: normal;
   font-weight: 900;
   font-display: swap;
@@ -369,6 +369,9 @@ legend { width: 100%; margin-bottom: 27px; color: var(--primary-dark); font-fami
 .form-actions > :only-child { margin-left: auto; }
 .submit-wrap { display: grid; justify-items: end; gap: 6px; }
 .submit-wrap small { color: var(--text-muted); }
+.turnstile-wrap { margin-top: 24px; display: grid; justify-items: start; gap: 7px; }
+.turnstile-wrap > div { width: min(100%, 300px); min-height: 65px; }
+.turnstile-wrap small { color: var(--text-muted); font-size: 12px; }
 
 .accordion { border: 1px solid var(--border); border-radius: 13px; background: #fff; }
 .accordion + .accordion { margin-top: 10px; }
