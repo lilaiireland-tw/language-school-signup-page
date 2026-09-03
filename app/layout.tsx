@@ -3,8 +3,8 @@ import { headers } from "next/headers";
 import { PRODUCTION_LANDING_URL, appPath } from "./lib/site-paths";
 import "./globals.css";
 
-const title = "愛爾蘭語校直接報名與選校協助｜哩來愛爾蘭";
-const description = "已經大致選好愛爾蘭語言學校？可直接提交報名需求，或預約一對一選校諮詢。7 日內完成訂金享半價，直接報名 25+8 長期課程再享限定權益。";
+const title = "愛爾蘭語言學校報名｜25+8打工遊學與選校協助｜哩來愛爾蘭";
+const description = "比較愛爾蘭語言學校、25+8 打工遊學、短期語校課程與住宿方案。已選好學校可直接報名；仍在比較城市與語校，可預約一對一選校諮詢，由哩來愛爾蘭協助完成申請與行前準備。";
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();

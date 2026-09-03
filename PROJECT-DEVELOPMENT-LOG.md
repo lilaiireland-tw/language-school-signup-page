@@ -12,13 +12,14 @@
 
 ## 最新狀態
 
-最後更新：2026-08-29
+最後更新：2026-09-03
 
 - 正式網站：https://lilaiireland.com
 - Worker 測試網址：https://site-creator-vinext-starter.lilaiireland.workers.dev
 - 第一個預定接管 URL：https://lilaiireland.com/language-school-signup/
 - Production custom route：**已啟用**，僅接管 `/language-school-signup` 與 `/language-school-signup/*`。
 - 正式網站其餘路徑仍由 WordPress 提供；Worker 同時保留 workers.dev 測試網址。
+- 2026-09-03 報名頁 SEO 修正已部署：SSR title 改為「愛爾蘭語言學校報名｜25+8打工遊學與選校協助｜哩來愛爾蘭」，description 自然納入愛爾蘭語言學校、25+8 打工遊學、短期語校課程、住宿與選校意圖，並明確不使用「簽證」用語。同步更新唯一 H1 為「報名愛爾蘭語言學校｜已選好學校就從申請開始」與 Hero 首段，Open Graph／Twitter 沿用同一組標題與描述；canonical 保留 `https://lilaiireland.com/language-school-signup/`，正式 hostname 為 `index, follow`、workers.dev 為 `noindex, nofollow`。Worker Version ID `bec3d958-8363-4fa0-a1df-42e0a4842a10`，rollback baseline `8e8c235a-f60f-4d00-bd9f-23d7b457529f`。未變更表單、API、D1、Turnstile、DNS、WordPress 或 Cloudflare routes。
 - 2026-08-29 Turnstile 與學生信改版已完成並部署：Cloudflare Dashboard 已設定 `TURNSTILE_SECRET`、`TURNSTILE_SITE_KEY`、`TURNSTILE_HOSTNAMES`，允許的 runtime hostname 僅為 `site-creator-vinext-starter.lilaiireland.workers.dev`、`lilaiireland.com`、`www.lilaiireland.com`，不包含 localhost 或 `127.0.0.1`。前端 widget、公開 runtime config、表單 token 傳遞及 Worker Siteverify 均已上線；固定 action 為 `application_submit`，後端要求 `success=true`、action 與 hostname 相符，Siteverify 異常一律 fail closed。學生確認信已依 `哩來愛爾蘭-郵件設計規範.md` 改為 600px table、品牌色、內容卡片／CTA／結尾結構及 Alex & Arsha 聯合署名，直接報名與諮詢付款分流保持不變。功能最初部署 Version ID 為 `75f319b8-a21b-479c-b7b0-3b62382d7b08`，目前已隨 production routes 發布於 Version ID `8e8c235a-f60f-4d00-bd9f-23d7b457529f`。
 - 2026-08-28 圖片顯示診斷：Worker 上的 `faci06-1024x683.jpg`、`Layer-2.png`、`community-seaside.jpg`、`community-extra-01.jpg` 均回傳 HTTP 200 與正確 image Content-Type，Worker 首頁 HTML 也已引用四張圖片；兩個 Leevin 外部介紹頁均回傳 HTTP 200。`lilaiireland.com` 首頁仍是 WordPress，未包含上述新版 HTML，因此正式網域看不到圖片不是資源檔或 React 路徑錯誤，而是 production custom route 尚未啟用。未更動 DNS、WordPress 或 Cloudflare production route。
 - D1 報名後端已完成並部署；`POST /api/applications` 已通過 production D1 E2E。
@@ -86,15 +87,15 @@
 
 ## 部署基準
 
-最近一次部署：2026-08-29（正式單一路徑 production routes 上線）
+最近一次部署：2026-09-03（報名頁 SEO metadata 與首屏文案）
 
 - 環境：production custom routes + workers.dev，連接 production D1
 - Worker：`site-creator-vinext-starter`
 - URL：https://lilaiireland.com/language-school-signup/
 - workers.dev：https://site-creator-vinext-starter.lilaiireland.workers.dev/language-school-signup/
 - API：https://lilaiireland.com/language-school-signup/api/applications
-- Version ID：`8e8c235a-f60f-4d00-bd9f-23d7b457529f`（100% traffic）
-- Worker code rollback baseline：`75f319b8-a21b-479c-b7b0-3b62382d7b08`
+- Version ID：`bec3d958-8363-4fa0-a1df-42e0a4842a10`（100% traffic）
+- Worker code rollback baseline：`8e8c235a-f60f-4d00-bd9f-23d7b457529f`
 - 部署前 D1 備份：`backups/pre-reference-code-migration-2026-08-27.sql`（11,403 bytes，僅存本機且已被 Git ignore）
 - 原始 QA checkpoint：`5aa3541a-2cf4-43f7-8f40-73f96c69922f`
 - Production D1：`lilai-applications-production`
@@ -104,6 +105,8 @@
 - Rollback：程式異常可回切 Worker code baseline；若需撤除正式網址接管，必須從 `wrangler.jsonc` 移除上述兩條 routes 後重新部署，單純 Worker version rollback 不保證移除 route triggers。D1 migration 目前只有 additive table 建立，資料不可透過 Worker rollback 自動移除。
 
 ## 已完成
+
+- 2026-09-03 報名頁 SEO metadata 與首屏主題訊號更新：`app/layout.tsx` 的 SSR title、meta description、Open Graph 及 Twitter metadata 已對齊「愛爾蘭語言學校報名」主意圖，文案統一區分 25+8 打工遊學與短期語校課程，不使用容易造成代辦誤解的「簽證」用語。`app/page.tsx` 的唯一 H1、Hero 首段與使用者手動簡化的訂金後協助說明已同步。Rendered HTML 測試新增 title、description、canonical、robots、Open Graph、唯一 H1、主題文案、無 meta keywords 及無 undefined／null 斷言。驗證：TypeScript 成功；frontend business logic 7/7；Turnstile 3/3；lint 0 errors／20 個既有 warnings；Vinext 五階段與 prerender 顯示 Build complete，Windows 結尾仍有已知 libuv assertion；獨立 rendered HTML 2/2 與 Wrangler dry-run 通過。環境：production custom routes + workers.dev，連接 production D1；Worker `site-creator-vinext-starter`；正式 URL `https://lilaiireland.com/language-school-signup/`；Version ID `bec3d958-8363-4fa0-a1df-42e0a4842a10`（100% traffic）；rollback baseline `8e8c235a-f60f-4d00-bd9f-23d7b457529f`。線上 QA：正式頁 HTTP 200，title、description、canonical、Open Graph、單一 H1 與 `index, follow` 正確；workers.dev 維持 `noindex, nofollow`。無尾斜線 URL 目前也回傳 200，但 canonical 統一指向有尾斜線 URL；若要改為單次永久轉址，需另行授權 routing 修正。未變更 DNS、Nameserver、WordPress、Cloudflare route 定義、D1 資料、Queue 或 secrets。
 
 - 2026-08-29 根目錄 README 依目前正式進度重整：移除過期的 ChatGPT 預覽網址、尚未部署與尚未設定 production route 等錯誤敘述，改列正式／workers.dev URL、已上線功能、現行 Vinext／Cloudflare／D1／Queue／Gmail／Notion／Turnstile 架構、base path 本機開發方式、實際測試指令、資料庫／部署授權邊界、Secrets 安全規則與主要目錄。README 明確指向本日誌作為唯一進度與部署基準來源。驗證：逐項對照 `package.json`、`wrangler.jsonc`、`vite.config.ts`、Worker 文件與本日誌；`git diff --check` 通過。僅修改文件，未執行部署，未變更 DNS、Nameserver、WordPress、Cloudflare route、D1、Queue 或 secrets。
 

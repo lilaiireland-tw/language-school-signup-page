@@ -20,7 +20,26 @@ test("server-renders the Lilai Ireland application page", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = (await response.text()).replaceAll("<!-- -->", "");
-  assert.match(html, /<title>愛爾蘭語校直接報名與選校協助｜哩來愛爾蘭<\/title>/i);
+  const seoTitle = "愛爾蘭語言學校報名｜25+8打工遊學與選校協助｜哩來愛爾蘭";
+  const seoDescription = "比較愛爾蘭語言學校、25+8 打工遊學、短期語校課程與住宿方案。已選好學校可直接報名；仍在比較城市與語校，可預約一對一選校諮詢，由哩來愛爾蘭協助完成申請與行前準備。";
+  assert.equal((html.match(/<title\b/gi) ?? []).length, 1);
+  assert.ok(html.includes(`<title>${seoTitle}</title>`));
+  assert.equal((html.match(/<meta[^>]+name="description"/gi) ?? []).length, 1);
+  assert.ok(html.match(/<meta[^>]+name="description"[^>]*>/i)?.[0].includes(seoDescription));
+  assert.equal((html.match(/<link[^>]+rel="canonical"/gi) ?? []).length, 1);
+  assert.match(html, /<link[^>]+rel="canonical"[^>]+href="https:\/\/lilaiireland\.com\/language-school-signup\/"/i);
+  assert.equal((html.match(/<meta[^>]+name="robots"/gi) ?? []).length, 1);
+  assert.match(html.match(/<meta[^>]+name="robots"[^>]*>/i)?.[0] ?? "", /content="noindex, nofollow"/i);
+  assert.ok(html.match(/<meta[^>]+property="og:title"[^>]*>/i)?.[0].includes(seoTitle));
+  assert.ok(html.match(/<meta[^>]+property="og:description"[^>]*>/i)?.[0].includes(seoDescription));
+  assert.match(html.match(/<meta[^>]+property="og:url"[^>]*>/i)?.[0] ?? "", /https:\/\/lilaiireland\.com\/language-school-signup\//i);
+  assert.equal((html.match(/<h1\b/gi) ?? []).length, 1);
+  assert.match(html, /報名愛爾蘭語言學校/);
+  assert.match(html, /已選好學校就從申請開始/);
+  assert.match(html, /25\+8 打工遊學或短期語校課程/);
+  assert.match(html, /愛爾蘭語校報名需求/);
+  assert.doesNotMatch(html, /<meta[^>]+name="keywords"/i);
+  assert.doesNotMatch(html, />\s*(?:undefined|null)\s*</i);
   assert.match(html, /提交直接報名需求/);
   assert.match(html, /已經選好學校，就直接進入報名流程/);
   assert.match(html, /直接報名限定加贈/);
@@ -198,6 +217,7 @@ test("keeps the form handoff contract explicit", async () => {
   assert.match(viteConfig, /nextConfig:\s*\{[\s\S]*?basePath:\s*"\/language-school-signup"[\s\S]*?trailingSlash:\s*true/);
   assert.match(layout, /PRODUCTION_LANDING_URL/);
   assert.match(layout, /hostname === "lilaiireland\.com"/);
+  assert.match(layout, /robots:\s*\{\s*index:\s*!noindex,\s*follow:\s*!noindex\s*\}/);
   assert.match(router, /hasAppBasePath/);
   assert.match(router, /pathname === "\/api\/applications"/);
   assert.match(router, /if \(hasAppBasePath\)[\s\S]*?api_not_found/);

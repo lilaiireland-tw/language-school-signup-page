@@ -150,8 +150,8 @@ export function HeroSection() {
       <div className="shell hero-grid">
         <div>
           <span className="eyebrow"><Sparkles size={16} /> 已經有出發計畫？不用先排諮詢</span>
-          <h1><span className="hero-title-line">已經大致選好愛爾蘭語校？</span><span className="hero-title-line hero-title-accent">直接開始報名更快</span></h1>
-          <p className="hero-copy">如果你已經確認想前往愛爾蘭，也大致知道學校、城市或課程方向，可以直接提交報名需求。哩來確認條件與方案後，將協助你完成報價、申請、付款、文件與行前準備。</p>
+          <h1><span className="hero-title-line">報名愛爾蘭語言學校</span><span className="hero-title-line hero-title-accent">已選好學校就從申請開始</span></h1>
+          <p className="hero-copy">無論是 25+8 打工遊學或短期語校課程，如果你已大致確定城市、學校與出發時間，就可以直接提交愛爾蘭語校報名需求。哩來確認條件與方案後，將協助你完成報價、申請、付款、文件與行前準備。</p>
           <div className="hero-actions">
             <div>
               <TrackedLink href="#direct-application-form" event="hero_direct_application_click" intent="direct_application" className="button button-primary button-large">直接提交報名需求 <ArrowRight size={19} /></TrackedLink>
@@ -228,7 +228,7 @@ export function AudienceQualificationCard({ icon: Icon, title, children }: { ico
 }
 
 export function AudienceQualificationSection() {
-  return <section className="section"><div className="shell"><SectionHeading title="你不一定需要先花時間諮詢" subtitle="如果以下多數描述符合你，就可以直接進入報名流程。" /><div className="four-grid"><AudienceQualificationCard icon={MapPin} title="已經決定前往愛爾蘭">你不是還在比較不同國家，而是已經有明確的愛爾蘭出發計畫。</AudienceQualificationCard><AudienceQualificationCard icon={Landmark} title="已大致選好城市或學校">你已經知道想去 Dublin、Cork，或已有心儀的語言學校。</AudienceQualificationCard><AudienceQualificationCard icon={BriefcaseBusiness} title="已有大約的時間與預算">不需要每個細節都確定，但已有可執行的出發時間與資金規劃。</AudienceQualificationCard><AudienceQualificationCard icon={BookOpenCheck} title="不需要完整選校分析">你只需要確認課程、報價、名額及報名細節，不需要重新比較多間學校。</AudienceQualificationCard></div><div className="info-banner"><Info size={22} /><p><strong>還有少量問題並不影響直接報名。</strong>完成訂金後，哩來仍會協助處理申請、付款、文件與出發流程中的必要問題。</p></div></div></section>;
+  return <section className="section"><div className="shell"><SectionHeading title="你不一定需要先花時間諮詢" subtitle="如果以下多數描述符合你，就可以直接進入報名流程。" /><div className="four-grid"><AudienceQualificationCard icon={MapPin} title="已經決定前往愛爾蘭">你不是還在比較不同國家，而是已經有明確的愛爾蘭出發計畫。</AudienceQualificationCard><AudienceQualificationCard icon={Landmark} title="已大致選好城市或學校">你已經知道想去 Dublin、Cork，或已有心儀的語言學校。</AudienceQualificationCard><AudienceQualificationCard icon={BriefcaseBusiness} title="已有大約的時間與預算">不需要每個細節都確定，但已有可執行的出發時間與資金規劃。</AudienceQualificationCard><AudienceQualificationCard icon={BookOpenCheck} title="不需要完整選校分析">你只需要確認課程、報價、名額及報名細節，不需要重新比較多間學校。</AudienceQualificationCard></div><div className="info-banner"><Info size={22} /><p>付完訂金後，哩來仍會協助處理申請、付款、文件與出發流程中的必要問題。</p></div></div></section>;
 }
 
 export function PartnerSchoolSection() {
