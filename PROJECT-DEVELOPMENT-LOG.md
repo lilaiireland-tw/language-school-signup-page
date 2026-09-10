@@ -12,13 +12,16 @@
 
 ## 最新狀態
 
-最後更新：2026-09-03
+最後更新：2026-09-11
 
 - 正式網站：https://lilaiireland.com
 - Worker 測試網址：https://site-creator-vinext-starter.lilaiireland.workers.dev
 - 第一個預定接管 URL：https://lilaiireland.com/language-school-signup/
 - Production custom route：**已啟用**，僅接管 `/language-school-signup` 與 `/language-school-signup/*`。
 - 正式網站其餘路徑仍由 WordPress 提供；Worker 同時保留 workers.dev 測試網址。
+- 2026-09-11 已將 2026-09-04 上線的 Google Ads 基礎 tag、兩種條件式 conversion、submission ID transaction 去重與相關回歸測試整理為本機 `main` 提交前基準。重新驗證：Gmail／Email 13/13、frontend business logic 10/10、staging isolation 1/1、Turnstile 3/3、TypeScript、rendered HTML 2/2 與 `git diff --check` 均通過；lint 0 errors／20 個既有 warnings。此整理不含 Gmail OAuth 修復，未部署、未變更 DNS、Nameserver、WordPress、Cloudflare routes、D1、Queue 或 secrets。
+- 2026-09-04 Google Ads 兩種條件式轉換已部署：沿用資料模型的 `direct_application` 與 `consultation`，分別只對應 `AW-17610996814/MeKhCKz2-e0cEM74yc1B` 與 `AW-17610996814/b4bzCNrO-u0cEM74yc1B`。未將 event snippet 靜態放入 `<head>`，也未綁定提交按鈕；只有前端驗證及 Turnstile 通過、API 成功建立 application 並回傳非個資唯一申請編號 `ST-xxxxxx`、成功狀態確認後，才依該次送出的 serviceType snapshot 呼叫一次 conversion，transaction ID 為 `${serviceType}:${applicationId}`。記憶體 `Set` 與頁籤生命週期的 `sessionStorage` 以同一 transaction ID 雙層去重；提交中的 ref guard 同時阻止重複 API 請求。追蹤缺失、被阻擋或丟出錯誤不影響成功頁，也不會重試 application API。驗證依序完成：lint 0 errors／20 個既有 warnings；TypeScript 通過；unit/integration 27/27（frontend 10/10、Gmail 13/13、Turnstile 3/3、staging config 1/1）；SSR/rendered HTML 2/2；production build 完成全部五階段並產生 `dist`（Windows 程序結束時仍出現既有 libuv assertion，exit `-1073740791`）；`git diff --check` 通過。正式 HTTP 200；實際 HTML 只有一個 Google 基礎 tag script、沒有靜態 conversion 呼叫或兩個 conversion labels；正式 client bundle 含兩個 label、transaction 前綴、去重及 gclid／UTM／landing page 保存邏輯。部署環境為 production custom routes + workers.dev，Worker `site-creator-vinext-starter`，正式 URL `https://lilaiireland.com/language-school-signup/`，Version ID `395225cf-2d36-4cba-83eb-b5068c2f1516`（100% traffic），rollback baseline `30875932-ff95-46c9-9aff-5dc14fb1cc22`。未提交真實 production 表單，避免建立 D1 案件、寄信、Queue／Notion 副作用；內建瀏覽器當時無可用工作階段，因此真實 Turnstile 成功提交與 Tag Assistant／Google Ads 診斷仍需以兩筆受控測試資料人工驗證。未更動 WordPress、DNS、Cloudflare route、D1 schema／既有資料、Queue 或 secrets。
+- 2026-09-04 Google Ads 基礎追蹤已部署至 Worker 報名頁：在全域 `<head>` 單次載入 Google tag `AW-17610996814`，並新增 SSR HTML 回歸測試避免實際 script tag 重複載入。既有表單保存 `gclid`、`utm_source`、`utm_medium`、`utm_campaign`、`utm_content`、`utm_term` 與 landing page URL；本次基礎 tag 部署 Version ID 為 `286d09f8-3539-49df-ac09-fd1073bde761`。後續兩種 conversion labels 與條件式成功事件已依上一項完成，不把 page view 當成轉換；WordPress `/consult/` 及全站其餘頁面不屬於此程式庫，未更動 WordPress、DNS 或 Cloudflare routes。
 - 2026-09-03 報名頁 SEO 修正已部署：SSR title 改為「愛爾蘭語言學校報名｜25+8打工遊學與選校協助｜哩來愛爾蘭」，description 自然納入愛爾蘭語言學校、25+8 打工遊學、短期語校課程、住宿與選校意圖，並明確不使用「簽證」用語。同步更新唯一 H1 為「報名愛爾蘭語言學校｜已選好學校就從申請開始」與 Hero 首段，Open Graph／Twitter 沿用同一組標題與描述；canonical 保留 `https://lilaiireland.com/language-school-signup/`，正式 hostname 為 `index, follow`、workers.dev 為 `noindex, nofollow`。Worker Version ID `bec3d958-8363-4fa0-a1df-42e0a4842a10`，rollback baseline `8e8c235a-f60f-4d00-bd9f-23d7b457529f`。未變更表單、API、D1、Turnstile、DNS、WordPress 或 Cloudflare routes。
 - 2026-08-29 Turnstile 與學生信改版已完成並部署：Cloudflare Dashboard 已設定 `TURNSTILE_SECRET`、`TURNSTILE_SITE_KEY`、`TURNSTILE_HOSTNAMES`，允許的 runtime hostname 僅為 `site-creator-vinext-starter.lilaiireland.workers.dev`、`lilaiireland.com`、`www.lilaiireland.com`，不包含 localhost 或 `127.0.0.1`。前端 widget、公開 runtime config、表單 token 傳遞及 Worker Siteverify 均已上線；固定 action 為 `application_submit`，後端要求 `success=true`、action 與 hostname 相符，Siteverify 異常一律 fail closed。學生確認信已依 `哩來愛爾蘭-郵件設計規範.md` 改為 600px table、品牌色、內容卡片／CTA／結尾結構及 Alex & Arsha 聯合署名，直接報名與諮詢付款分流保持不變。功能最初部署 Version ID 為 `75f319b8-a21b-479c-b7b0-3b62382d7b08`，目前已隨 production routes 發布於 Version ID `8e8c235a-f60f-4d00-bd9f-23d7b457529f`。
 - 2026-08-28 圖片顯示診斷：Worker 上的 `faci06-1024x683.jpg`、`Layer-2.png`、`community-seaside.jpg`、`community-extra-01.jpg` 均回傳 HTTP 200 與正確 image Content-Type，Worker 首頁 HTML 也已引用四張圖片；兩個 Leevin 外部介紹頁均回傳 HTTP 200。`lilaiireland.com` 首頁仍是 WordPress，未包含上述新版 HTML，因此正式網域看不到圖片不是資源檔或 React 路徑錯誤，而是 production custom route 尚未啟用。未更動 DNS、WordPress 或 Cloudflare production route。
@@ -87,15 +90,15 @@
 
 ## 部署基準
 
-最近一次部署：2026-09-03（報名頁 SEO metadata 與首屏文案）
+最近一次部署：2026-09-04（Google Ads 兩種表單條件式成功轉換事件）
 
 - 環境：production custom routes + workers.dev，連接 production D1
 - Worker：`site-creator-vinext-starter`
 - URL：https://lilaiireland.com/language-school-signup/
 - workers.dev：https://site-creator-vinext-starter.lilaiireland.workers.dev/language-school-signup/
 - API：https://lilaiireland.com/language-school-signup/api/applications
-- Version ID：`bec3d958-8363-4fa0-a1df-42e0a4842a10`（100% traffic）
-- Worker code rollback baseline：`8e8c235a-f60f-4d00-bd9f-23d7b457529f`
+- Version ID：`395225cf-2d36-4cba-83eb-b5068c2f1516`（100% traffic）
+- Worker code rollback baseline：`30875932-ff95-46c9-9aff-5dc14fb1cc22`
 - 部署前 D1 備份：`backups/pre-reference-code-migration-2026-08-27.sql`（11,403 bytes，僅存本機且已被 Git ignore）
 - 原始 QA checkpoint：`5aa3541a-2cf4-43f7-8f40-73f96c69922f`
 - Production D1：`lilai-applications-production`

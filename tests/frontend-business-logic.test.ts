@@ -6,6 +6,7 @@ import { BRAND_LINKS } from "../app/lib/brand-links.ts";
 import { getSchoolOptionsForCity, partnerSchools, visiblePartnerSchools } from "../app/lib/schools.ts";
 import type { DirectApplicationFormData } from "../app/lib/types.ts";
 import { parseApplicationInput } from "../worker/validation/application-schema.ts";
+import { GOOGLE_ADS_CONVERSION_SEND_TO, trackGoogleAdsConversion } from "../app/lib/analytics.ts";
 
 function form(overrides: Partial<DirectApplicationFormData> = {}): DirectApplicationFormData {
   return {
@@ -90,4 +91,61 @@ test("server validation removes stale direct-only consultation fields", () => {
   assert.equal(parsed.decisionStage, "");
   assert.equal(parsed.isicInitiallyEligible, false);
   assert.equal(parsed.agreements.isic, undefined);
+});
+
+function installTrackingWindow(gtag?: (...args: unknown[]) => void) {
+  const storage = new Map<string, string>();
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: {
+      gtag,
+      sessionStorage: {
+        getItem: (key: string) => storage.get(key) ?? null,
+        setItem: (key: string, value: string) => storage.set(key, value),
+      },
+    },
+  });
+  return storage;
+}
+
+test("Google Ads maps direct and consultation submissions to only their own labels", () => {
+  const calls: unknown[][] = [];
+  installTrackingWindow((...args: unknown[]) => calls.push(args));
+
+  assert.equal(trackGoogleAdsConversion("direct_application", "ST-123456"), true);
+  assert.equal(trackGoogleAdsConversion("consultation", "ST-123457"), true);
+  assert.deepEqual(calls, [
+    ["event", "conversion", { send_to: GOOGLE_ADS_CONVERSION_SEND_TO.direct_application, transaction_id: "direct_application:ST-123456" }],
+    ["event", "conversion", { send_to: GOOGLE_ADS_CONVERSION_SEND_TO.consultation, transaction_id: "consultation:ST-123457" }],
+  ]);
+  assert.notEqual(GOOGLE_ADS_CONVERSION_SEND_TO.direct_application, GOOGLE_ADS_CONVERSION_SEND_TO.consultation);
+
+  delete (globalThis as { window?: unknown }).window;
+});
+
+test("Google Ads conversion rejects invalid IDs, deduplicates repeats, and allows different applications", () => {
+  const calls: unknown[][] = [];
+  installTrackingWindow((...args: unknown[]) => calls.push(args));
+
+  assert.equal(trackGoogleAdsConversion("direct_application", "not-an-application-id"), false);
+  assert.equal(trackGoogleAdsConversion("direct_application", "ST-223456"), true);
+  assert.equal(trackGoogleAdsConversion("direct_application", "ST-223456"), false);
+  assert.equal(trackGoogleAdsConversion("direct_application", "ST-223457"), true);
+  assert.equal(calls.length, 2);
+
+  delete (globalThis as { window?: unknown }).window;
+});
+
+test("Google Ads blocking, missing gtag, and SSR never interrupt successful application UI", () => {
+  installTrackingWindow();
+  assert.doesNotThrow(() => trackGoogleAdsConversion("consultation", "ST-323456"));
+  assert.equal(trackGoogleAdsConversion("consultation", "ST-323456"), false);
+
+  installTrackingWindow(() => { throw new Error("blocked"); });
+  assert.doesNotThrow(() => trackGoogleAdsConversion("consultation", "ST-323457"));
+  assert.equal(trackGoogleAdsConversion("consultation", "ST-323457"), false);
+
+  delete (globalThis as { window?: unknown }).window;
+  assert.doesNotThrow(() => trackGoogleAdsConversion("direct_application", "ST-323458"));
+  assert.equal(trackGoogleAdsConversion("direct_application", "ST-323458"), false);
 });

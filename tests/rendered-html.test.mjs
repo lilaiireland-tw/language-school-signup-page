@@ -50,6 +50,10 @@ test("server-renders the Lilai Ireland application page", async () => {
   assert.match(html, /class="boundary-detail-stack"/);
   assert.match(html, /我需要預約一對一諮詢/);
   assert.match(html, /id="direct-application-form"/);
+  assert.equal((html.match(/<script[^>]+src="https:\/\/www\.googletagmanager\.com\/gtag\/js\?id=AW-17610996814"/g) ?? []).length, 1);
+  assert.match(html, /<script>[^<]*gtag\('config', 'AW-17610996814'\);[^<]*<\/script>/);
+  assert.doesNotMatch(html, /MeKhCKz2-e0cEM74yc1B/);
+  assert.doesNotMatch(html, /b4bzCNrO-u0cEM74yc1B/);
   assert.equal((html.match(/href="https:\/\/lilaiireland\.com\/"[^>]*>回到官網<\/a>/g) ?? []).length, 2);
   assert.match(html, /不只是代辦語校，我們也幫你準備愛爾蘭開局大禮包/);
   assert.match(html, /5 日歐洲地區 eSIM/);
@@ -115,9 +119,10 @@ test("server-renders the Lilai Ireland application page", async () => {
 });
 
 test("keeps the form handoff contract explicit", async () => {
-  const [types, api, data, schools, brandLinks, page, styles, revealController, referenceMigration, applicationService, gmail, internalEmail, notion, repository, paths, viteConfig, layout, router, applicationRoute, turnstile, turnstileWidget, wranglerSource] = await Promise.all([
+  const [types, api, analytics, data, schools, brandLinks, page, styles, revealController, referenceMigration, applicationService, gmail, internalEmail, notion, repository, paths, viteConfig, layout, router, applicationRoute, turnstile, turnstileWidget, wranglerSource] = await Promise.all([
     readFile(new URL("../app/lib/types.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/lib/api.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/lib/analytics.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/lib/data.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/lib/schools.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/lib/brand-links.ts", import.meta.url), "utf8"),
@@ -140,7 +145,7 @@ test("keeps the form handoff contract explicit", async () => {
     readFile(new URL("../wrangler.jsonc", import.meta.url), "utf8"),
   ]);
 
-  assert.match(types, /serviceType:\s*"direct_application"\s*\|\s*"consultation"/);
+  assert.match(types, /ServiceType\s*=\s*"direct_application"\s*\|\s*"consultation"/);
   assert.match(types, /consultationGoal:\s*string/);
   assert.match(types, /isicInitiallyEligible:\s*boolean/);
   assert.doesNotMatch(types, /englishName|leap/i);
@@ -148,6 +153,18 @@ test("keeps the form handoff contract explicit", async () => {
   assert.match(api, /isicEligibilityStatus:\s*"pending"/);
   assert.match(api, /\^ST-\\d\{6,\}\$/);
   assert.match(api, /submissionId:\s*result\.submissionId/);
+  assert.match(analytics, /direct_application:\s*"AW-17610996814\/MeKhCKz2-e0cEM74yc1B"/);
+  assert.match(analytics, /consultation:\s*"AW-17610996814\/b4bzCNrO-u0cEM74yc1B"/);
+  assert.match(analytics, /transactionId\s*=\s*`\$\{serviceType\}:\$\{applicationId\}`/);
+  assert.match(page, /event\.preventDefault\(\); if \(!validate\(3\)\) return;/);
+  assert.match(page, /if \(!turnstileToken\).*return;/);
+  assert.match(page, /if \(!submitted \|\| !successfulConversion\) return/);
+  assert.match(page, /trackGoogleAdsConversion\(successfulConversion\.serviceType, successfulConversion\.applicationId\)/);
+  assert.equal((page.match(/trackGoogleAdsConversion\(/g) ?? []).length, 1);
+  assert.match(page, /setSuccessfulConversion\(\{ serviceType: payload\.serviceType, applicationId: result\.submissionId \}\)/);
+  assert.match(page, /await submitDirectApplication\(payload, turnstileToken\)[\s\S]*?setSuccessfulConversion[\s\S]*?setSubmitted\(true\)/);
+  assert.match(page, /if \(submissionInFlightRef\.current\) return/);
+  assert.match(page, /finally \{ submissionInFlightRef\.current = false; setSubmitting\(false\); \}/);
   assert.doesNotMatch(api, /leap/i);
   assert.match(referenceMigration, /reference_code TEXT/);
   assert.match(referenceMigration, /printf\('ST-%06d'/);

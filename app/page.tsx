@@ -37,7 +37,7 @@ import { FormEvent, ReactNode, useCallback, useEffect, useRef, useState } from "
 import { RevealController } from "./components/reveal-controller";
 import { TurnstileWidget } from "./components/turnstile-widget";
 import { submitDirectApplication } from "./lib/api";
-import { trackEvent } from "./lib/analytics";
+import { trackEvent, trackGoogleAdsConversion } from "./lib/analytics";
 import { courseOptions, testimonials } from "./lib/data";
 import { BRAND_LINKS } from "./lib/brand-links";
 import { ACCOMMODATION_TERMS, CONSULTATION_TERMS, DIRECT_APPLICATION_TERMS, LEEVIN_TERMS, formatTwd } from "./lib/commercial-terms";
@@ -45,7 +45,7 @@ import { evaluateDirectApplicationReadiness } from "./lib/application/readiness"
 import { sanitizeApplicationPayload } from "./lib/application/sanitize";
 import { getSchoolOptionsForCity, visiblePartnerSchools } from "./lib/schools";
 import { appPath } from "./lib/site-paths";
-import type { DirectApplicationFormData } from "./lib/types";
+import type { DirectApplicationFormData, ServiceType } from "./lib/types";
 
 const consultationUrl = BRAND_LINKS.consultation;
 const assessmentUrl = BRAND_LINKS.assessment;
@@ -53,6 +53,7 @@ const websiteUrl = BRAND_LINKS.website;
 const googleReviewUrl = BRAND_LINKS.googleReviews;
 const accommodationFeeHint = `由哩來學長姐依城市、入住期間、房型與當期房況提供合作報價；住宿安排服務費 ${formatTwd(ACCOMMODATION_TERMS.arrangementFeeTwd)}（原價 ${formatTwd(ACCOMMODATION_TERMS.arrangementFeeOriginalTwd)}）`;
 const uncertainOptionValues = new Set(["尚未確定", "尚未確定／希望諮詢", "尚未確認"]);
+type SuccessfulConversion = { serviceType: ServiceType; applicationId: string };
 
 const initialForm: DirectApplicationFormData = {
   serviceType: "direct_application",
@@ -341,6 +342,8 @@ export function MultiStepApplicationForm() {
   const [errors, setErrors] = useState<Errors>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [successfulConversion, setSuccessfulConversion] = useState<SuccessfulConversion | null>(null);
+  const submissionInFlightRef = useRef(false);
   const [turnstileToken, setTurnstileToken] = useState("");
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const handleTurnstileToken = useCallback((token: string) => {
@@ -354,6 +357,7 @@ export function MultiStepApplicationForm() {
   const schoolOptions = getSchoolOptionsForCity(form.preferredCity);
   const chooseServiceType = (intent: DirectApplicationFormData["serviceType"]) => {
     setSubmitted(false);
+    setSuccessfulConversion(null);
     setStep(1);
     setErrors({});
     setTurnstileToken("");
@@ -391,6 +395,7 @@ export function MultiStepApplicationForm() {
     const handleIntent = (event: Event) => chooseServiceType((event as CustomEvent<{ intent: DirectApplicationFormData["serviceType"] }>).detail.intent);
     const handleAccommodationIntent = () => {
       setSubmitted(false);
+      setSuccessfulConversion(null);
       setStep(1);
       setErrors({});
       setForm((current) => ({
@@ -409,6 +414,10 @@ export function MultiStepApplicationForm() {
     };
   }, []);
   useEffect(() => { setForm((current) => ({ ...current, isicInitiallyEligible: isicOfferIncluded })); }, [isicOfferIncluded]);
+  useEffect(() => {
+    if (!submitted || !successfulConversion) return;
+    trackGoogleAdsConversion(successfulConversion.serviceType, successfulConversion.applicationId);
+  }, [submitted, successfulConversion]);
   useEffect(() => {
     if (isConsultation || !form.preferredSchool || getSchoolOptionsForCity(form.preferredCity).includes(form.preferredSchool)) return;
     setForm((current) => ({ ...current, preferredSchool: "", customSchool: "" }));
@@ -446,10 +455,12 @@ export function MultiStepApplicationForm() {
   const submit = async (event: FormEvent) => {
     event.preventDefault(); if (!validate(3)) return;
     if (!turnstileToken) { setErrors((current) => ({ ...current, turnstile: "請先完成安全驗證。" })); return; }
+    if (submissionInFlightRef.current) return;
+    submissionInFlightRef.current = true;
     setSubmitting(true); setErrors((current) => ({ ...current, submit: "", turnstile: "" }));
-    try { const readiness = evaluateDirectApplicationReadiness(form); const payload = sanitizeApplicationPayload(form); await submitDirectApplication(payload, turnstileToken); trackEvent(isConsultation ? "consultation_request_submit" : "direct_application_submit", { isicOfferIncluded, requiresConsultationReview: readiness.requiresConsultationReview }); setSubmitted(true); }
+    try { const readiness = evaluateDirectApplicationReadiness(form); const payload = sanitizeApplicationPayload(form); const result = await submitDirectApplication(payload, turnstileToken); trackEvent(isConsultation ? "consultation_request_submit" : "direct_application_submit", { isicOfferIncluded, requiresConsultationReview: readiness.requiresConsultationReview }); setSuccessfulConversion({ serviceType: payload.serviceType, applicationId: result.submissionId }); setSubmitted(true); }
     catch (error) { setErrors((current) => ({ ...current, submit: error instanceof Error ? error.message : "報名資料送出失敗，請稍後再試。" })); setTurnstileResetKey((current) => current + 1); }
-    finally { setSubmitting(false); }
+    finally { submissionInFlightRef.current = false; setSubmitting(false); }
   };
 
   if (submitted) return <section className="section form-section" id="direct-application-form"><div className="shell form-shell"><SuccessState isicOfferIncluded={isicOfferIncluded} serviceType={form.serviceType} /></div></section>;

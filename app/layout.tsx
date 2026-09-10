@@ -5,6 +5,7 @@ import "./globals.css";
 
 const title = "愛爾蘭語言學校報名｜25+8打工遊學與選校協助｜哩來愛爾蘭";
 const description = "比較愛爾蘭語言學校、25+8 打工遊學、短期語校課程與住宿方案。已選好學校可直接報名；仍在比較城市與語校，可預約一對一選校諮詢，由哩來愛爾蘭協助完成申請與行前準備。";
+const googleAdsTagId = "AW-17610996814";
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
@@ -28,5 +29,13 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="zh-Hant"><body>{children}</body></html>;
+  return <html lang="zh-Hant"><head>
+    <script async src={`https://www.googletagmanager.com/gtag/js?id=${googleAdsTagId}`} />
+    <script dangerouslySetInnerHTML={{ __html: `
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', '${googleAdsTagId}');
+    ` }} />
+  </head><body>{children}</body></html>;
 }

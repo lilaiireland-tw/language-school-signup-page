@@ -9,8 +9,10 @@ export interface IsicCRMFields {
   isicNotes?: string;
 }
 
+export type ServiceType = "direct_application" | "consultation";
+
 export interface DirectApplicationFormData {
-  serviceType: "direct_application" | "consultation";
+  serviceType: ServiceType;
   chineseName: string;
   email: string;
   phone: string;
