@@ -1,12 +1,16 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 
 const AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const GMAIL_SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send";
 const CALLBACK_TIMEOUT_MS = 5 * 60 * 1000;
+const PRODUCTION_WORKER = "site-creator-vinext-starter";
+const WRANGLER_BIN = fileURLToPath(new URL("../node_modules/wrangler/bin/wrangler.js", import.meta.url));
 
 function base64Url(bytes) {
   return Buffer.from(bytes).toString("base64url");
@@ -100,10 +104,22 @@ async function exchangeAuthorizationCode({ clientId, clientSecret, code, codeVer
   return payload.refresh_token;
 }
 
+async function putWorkerSecret(name, value) {
+  await new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [WRANGLER_BIN, "secret", "put", name, "--name", PRODUCTION_WORKER, "--env="], {
+      stdio: ["pipe", "inherit", "inherit"],
+    });
+    child.once("error", reject);
+    child.once("exit", (code) => code === 0 ? resolve() : reject(new Error(`Failed to update ${name} in Cloudflare Workers.`)));
+    child.stdin.end(`${value}\n`);
+  });
+}
+
 async function main() {
   const credentialPath = process.argv[2];
+  const putSecrets = process.argv.includes("--put-production-secrets");
   if (!credentialPath) {
-    throw new Error("Usage: npm run gmail:authorize -- <path-to-desktop-oauth-client.json>");
+    throw new Error("Usage: npm run gmail:authorize -- <path-to-desktop-oauth-client.json> [--put-production-secrets]");
   }
 
   const credentialJson = JSON.parse(await readFile(credentialPath, "utf8"));
@@ -144,6 +160,14 @@ async function main() {
 
   const code = await waitForAuthorizationCode(server, state);
   const refreshToken = await exchangeAuthorizationCode({ ...credentials, code, codeVerifier, redirectUri });
+  if (putSecrets) {
+    await putWorkerSecret("GMAIL_CLIENT_ID", credentials.clientId);
+    await putWorkerSecret("GMAIL_CLIENT_SECRET", credentials.clientSecret);
+    await putWorkerSecret("GMAIL_REFRESH_TOKEN", refreshToken);
+    console.log(`OAuth client credentials and refresh token were securely updated on Worker ${PRODUCTION_WORKER}.`);
+    console.log("No OAuth credential or token value was printed or written to disk.");
+    return;
+  }
   console.log("GMAIL_REFRESH_TOKEN (printed once; store it in Cloudflare Secrets now):\n");
   console.log(refreshToken);
   console.log("\nThis script did not write the refresh token to disk or print the access token.");

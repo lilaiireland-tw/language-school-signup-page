@@ -34,8 +34,25 @@ async function processJob(job: IntegrationJobRow, env: Cloudflare.Env): Promise<
       const notionPageId = await syncApplicationToNotion(application, env);
       await completeIntegrationJob(env.DB, job.id, new Date().toISOString(), { notionPageId });
     } else {
+      console.log(JSON.stringify({
+        event: "email_send_started",
+        submissionId: application.reference_code,
+        applicationId: application.id,
+        jobId: job.id,
+        jobType: job.job_type,
+        attempt: job.attempts + 1,
+      }));
       const providerMessageId = await sendApplicationEmail(application, job.job_type, env);
       await completeIntegrationJob(env.DB, job.id, new Date().toISOString(), { providerMessageId });
+      console.log(JSON.stringify({
+        event: "email_send_accepted",
+        submissionId: application.reference_code,
+        applicationId: application.id,
+        jobId: job.id,
+        jobType: job.job_type,
+        attempt: job.attempts + 1,
+        gmailMessageId: providerMessageId,
+      }));
     }
   } catch (error) {
     const retryable = error instanceof IntegrationError ? error.retryable : true;
@@ -44,6 +61,22 @@ async function processJob(job: IntegrationJobRow, env: Cloudflare.Env): Promise<
     const delay = retryDelaySeconds(attempts);
     const retryAt = deadLetter ? null : new Date(Date.now() + delay * 1000).toISOString();
     await failIntegrationJob(env.DB, job.id, new Date().toISOString(), sanitizedError(error), retryAt, deadLetter);
+    if (job.job_type === "student_email" || job.job_type === "internal_email") {
+      const integrationError = error instanceof IntegrationError ? error : null;
+      console.error(JSON.stringify({
+        event: "email_send_failed",
+        submissionId: application.reference_code,
+        applicationId: application.id,
+        jobId: job.id,
+        jobType: job.job_type,
+        attempt: attempts,
+        errorCode: integrationError?.code ?? "unhandled_error",
+        httpStatus: integrationError?.httpStatus ?? null,
+        retryable,
+        deadLetter,
+        nextRetryAt: retryAt,
+      }));
+    }
     if (!deadLetter) throw new IntegrationError(sanitizedError(error), true);
   }
 }

@@ -17,7 +17,10 @@ const PERMANENT_OAUTH_ERRORS = new Set(["invalid_client", "invalid_grant", "unau
 
 function oauthFailure(status: number, errorCode: string): IntegrationError {
   const retryable = status === 408 || status === 429 || status >= 500 || !PERMANENT_OAUTH_ERRORS.has(errorCode) && status < 400;
-  return new IntegrationError(`Gmail OAuth failed (${status}): ${errorCode || "unknown_error"}`, retryable);
+  return new IntegrationError(`Gmail OAuth failed (${status}): ${errorCode || "unknown_error"}`, retryable, {
+    code: errorCode || "unknown_error",
+    httpStatus: status,
+  });
 }
 
 export async function getGmailAccessToken(
@@ -37,21 +40,24 @@ export async function getGmailAccessToken(
       }),
     });
   } catch {
-    throw new IntegrationError("Gmail OAuth network request failed", true);
+    throw new IntegrationError("Gmail OAuth network request failed", true, { code: "gmail_oauth_network" });
   }
 
   let payload: TokenResponse;
   try {
     payload = await response.json<TokenResponse>();
   } catch {
-    throw new IntegrationError(`Gmail OAuth returned invalid JSON (${response.status})`, response.status >= 500 || response.status === 429);
+    throw new IntegrationError(`Gmail OAuth returned invalid JSON (${response.status})`, response.status >= 500 || response.status === 429, {
+      code: "gmail_oauth_invalid_json",
+      httpStatus: response.status,
+    });
   }
 
   if (!response.ok) {
     throw oauthFailure(response.status, typeof payload.error === "string" ? payload.error : "unknown_error");
   }
   if (typeof payload.access_token !== "string" || payload.access_token.length === 0) {
-    throw new IntegrationError("Gmail OAuth response did not include an access token", true);
+    throw new IntegrationError("Gmail OAuth response did not include an access token", true, { code: "gmail_oauth_missing_access_token" });
   }
   return payload.access_token;
 }

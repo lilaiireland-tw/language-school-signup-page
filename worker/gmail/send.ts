@@ -50,26 +50,32 @@ export async function sendGmailMessage(raw: string, accessToken: string, fetcher
       body: JSON.stringify({ raw }),
     });
   } catch {
-    throw new IntegrationError("Gmail send network request failed", true);
+    throw new IntegrationError("Gmail send network request failed", true, { code: "gmail_send_network" });
   }
   let payload: { id?: unknown };
   try {
     payload = await response.json();
   } catch {
-    throw new IntegrationError(`Gmail send returned invalid JSON (${response.status})`, response.status >= 500 || response.status === 429);
+    throw new IntegrationError(`Gmail send returned invalid JSON (${response.status})`, response.status >= 500 || response.status === 429, {
+      code: "gmail_send_invalid_json",
+      httpStatus: response.status,
+    });
   }
   if (!response.ok || typeof payload.id !== "string" || payload.id.length === 0) {
     const retryable = response.status === 408 || response.status === 429 || response.status >= 500;
-    throw new IntegrationError(`Gmail send failed (${response.status})`, retryable);
+    throw new IntegrationError(`Gmail send failed (${response.status})`, retryable, {
+      code: "gmail_send_failed",
+      httpStatus: response.status,
+    });
   }
   return payload.id;
 }
 
 export async function sendApplicationEmail(application: ApplicationRow, jobType: "student_email" | "internal_email", env: Cloudflare.Env, fetcher: HttpFetch = fetch): Promise<string> {
   const { GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, GMAIL_SENDER_EMAIL } = env;
-  if (GMAIL_SENDER_EMAIL !== EXPECTED_GMAIL_SENDER) throw new IntegrationError("Gmail sender email is misconfigured", false);
+  if (GMAIL_SENDER_EMAIL !== EXPECTED_GMAIL_SENDER) throw new IntegrationError("Gmail sender email is misconfigured", false, { code: "gmail_sender_misconfigured" });
   if (!GMAIL_CLIENT_ID || !GMAIL_CLIENT_SECRET || !GMAIL_REFRESH_TOKEN) {
-    throw new IntegrationError("Gmail OAuth is not configured", false);
+    throw new IntegrationError("Gmail OAuth is not configured", false, { code: "gmail_oauth_not_configured" });
   }
   const accessToken = await getGmailAccessToken({
     clientId: GMAIL_CLIENT_ID,

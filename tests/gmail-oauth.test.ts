@@ -36,6 +36,8 @@ test("OAuth permanent configuration failures do not retry", async () => {
       getGmailAccessToken(credentials, fetcher),
       (failure: unknown) => failure instanceof IntegrationError
         && failure.retryable === false
+        && failure.code === error
+        && failure.httpStatus === 400
         && failure.message.includes(error)
         && !failure.message.includes("sensitive provider detail"),
     );
@@ -44,12 +46,12 @@ test("OAuth permanent configuration failures do not retry", async () => {
 
 test("OAuth temporary provider and network failures retry", async () => {
   const unavailable: HttpFetch = async () => jsonResponse({ error: "temporarily_unavailable" }, 503);
-  await assert.rejects(getGmailAccessToken(credentials, unavailable), (failure: unknown) => failure instanceof IntegrationError && failure.retryable);
+  await assert.rejects(getGmailAccessToken(credentials, unavailable), (failure: unknown) => failure instanceof IntegrationError && failure.retryable && failure.code === "temporarily_unavailable" && failure.httpStatus === 503);
 
   const networkFailure: HttpFetch = async () => { throw new Error("socket included secret-like diagnostics"); };
   await assert.rejects(
     getGmailAccessToken(credentials, networkFailure),
-    (failure: unknown) => failure instanceof IntegrationError && failure.retryable && !failure.message.includes("secret-like"),
+    (failure: unknown) => failure instanceof IntegrationError && failure.retryable && failure.code === "gmail_oauth_network" && failure.httpStatus === null && !failure.message.includes("secret-like"),
   );
 });
 
@@ -69,7 +71,7 @@ test("Gmail 401 and 403 authorization failures do not retry", async () => {
     const fetcher: HttpFetch = async () => jsonResponse({ error: { message: "authorization rejected" } }, status);
     await assert.rejects(
       sendGmailMessage("raw", "token", fetcher),
-      (failure: unknown) => failure instanceof IntegrationError && failure.retryable === false && failure.message.includes(String(status)),
+      (failure: unknown) => failure instanceof IntegrationError && failure.retryable === false && failure.code === "gmail_send_failed" && failure.httpStatus === status && failure.message.includes(String(status)),
     );
   }
 });
@@ -79,7 +81,7 @@ test("Gmail 429 and 5xx failures use the existing retry path", async () => {
     const fetcher: HttpFetch = async () => jsonResponse({ error: { message: "temporary failure" } }, status);
     await assert.rejects(
       sendGmailMessage("raw", "token", fetcher),
-      (failure: unknown) => failure instanceof IntegrationError && failure.retryable === true,
+      (failure: unknown) => failure instanceof IntegrationError && failure.retryable === true && failure.code === "gmail_send_failed" && failure.httpStatus === status,
     );
   }
 });

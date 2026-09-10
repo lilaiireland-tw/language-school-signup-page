@@ -106,6 +106,14 @@ npm run types:worker
 npm.cmd run gmail:authorize -- "C:\path\to\client_secret.json"
 ```
 
+若要避免 refresh token 出現在 terminal，並確認 production Worker 的 Client ID、Client Secret 與新 token 全部來自同一份既有 OAuth client，可使用：
+
+```powershell
+npm.cmd run gmail:authorize -- "C:\path\to\client_secret.json" --put-production-secrets
+```
+
+此模式只會透過 stdin 更新 Worker `site-creator-vinext-starter` 的三項 Gmail OAuth secrets，不會輸出任何 secret 值。
+
 此流程只要求 `https://www.googleapis.com/auth/gmail.send`，使用 PKCE、offline access、明確 consent 與本機 loopback callback。Refresh token 只會在終端顯示一次，應立即手動存入 Cloudflare Secret `GMAIL_REFRESH_TOKEN`。
 
 ## 主要目錄
