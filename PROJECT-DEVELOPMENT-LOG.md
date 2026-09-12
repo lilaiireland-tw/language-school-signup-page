@@ -12,13 +12,14 @@
 
 ## 最新狀態
 
-最後更新：2026-09-11
+最後更新：2026-09-12
 
 - 正式網站：https://lilaiireland.com
 - Worker 測試網址：https://site-creator-vinext-starter.lilaiireland.workers.dev
 - 第一個預定接管 URL：https://lilaiireland.com/language-school-signup/
 - Production custom route：**已啟用**，僅接管 `/language-school-signup` 與 `/language-school-signup/*`。
 - 正式網站其餘路徑仍由 WordPress 提供；Worker 同時保留 workers.dev 測試網址。
+- 2026-09-12 合作語校名單更新已合併並推送至 GitHub `main`：新增 Cork 校區 `SEDA College`（`seda-cork`，可見且可直接申請）；EC English 與 Limerick Language Centre 保留在資料集供日後恢復，但均標記為 `review`、`visible: false`、`directApplicationEligible: false`，因此不會出現在合作學校列表或直接報名選項。驗證：TypeScript、lint 0 errors、frontend business logic 10/10、`git diff --check` 與 Wrangler dry-run 均通過；Vinext 五階段 build 顯示 Build complete，但結尾仍有既知 Windows libuv assertion。資料集檢查確認 Cork 選項含 SEDA College，且 EC English／Limerick Language Centre 均不在可見清單。正式唯讀 smoke test 回傳 HTTP 200，未送出表單，因此未建立 D1 資料、寄信、寫入 Notion 或觸發 Queue。部署環境：production custom routes + workers.dev；Worker `site-creator-vinext-starter`；正式 URL `https://lilaiireland.com/language-school-signup/`；Version ID `71609254-e3cd-48dc-a722-060531b213f9`（100% traffic）；rollback baseline `c03042fe-b6fc-4fb8-b97f-6a0f5c00ea3a`。未變更 DNS、Nameserver、WordPress、Cloudflare routes、D1 schema／資料、Queue 或 secrets。
 - 2026-09-11 已將 2026-09-04 上線的 Google Ads 基礎 tag、兩種條件式 conversion、submission ID transaction 去重與相關回歸測試整理為本機 `main` 提交前基準。重新驗證：Gmail／Email 13/13、frontend business logic 10/10、staging isolation 1/1、Turnstile 3/3、TypeScript、rendered HTML 2/2 與 `git diff --check` 均通過；lint 0 errors／20 個既有 warnings。此整理不含 Gmail OAuth 修復，未部署、未變更 DNS、Nameserver、WordPress、Cloudflare routes、D1、Queue 或 secrets。
 - 2026-09-11 Gmail OAuth／寄信可觀測性修復已部署。以既有 Google OAuth Desktop Client（`lilai-application-mailer`、scope 僅 `gmail.send`）重新取得 offline refresh token 並安全更新 production Worker secrets；未輸出或寫入 token、授權碼、client secret。受保護且未分配 traffic 的 preview 先成功交換 access token，才寄出一封固定收件者 `lilaiireland@gmail.com` 的受控測試信；Gmail API 接受結果 message ID `1a08dae28b39847b`，此結果僅代表 API accepted，仍待人工確認實際收件／未退信。為避免公開 preview 成為寄信入口，測試使用一次性 server-side header secret，測試後已由最終 production version 移除；沒有建立 application、Notion page、Google Ads conversion 或重送既有 Email job。Worker 現在對 email job 記錄 `email_send_started`、`email_send_accepted`（含 Gmail message ID）與 `email_send_failed`（安全化 error code、HTTP status、retryable、dead-letter／next retry 狀態）；每筆以 submission ID、application ID、job ID、job type、attempt 串聯，不記錄收件者、信件內容或憑證。Gmail API JSON／非 2xx 皆明確檢查；401／403／`invalid_grant` 等永久錯誤直接 dead-letter，網路、429、5xx 仍沿用既有指數退避與最多 5 次嘗試。唯讀 D1 盤點：`ST-000011`～`ST-000014` 各有 student/internal email 共 8 個 dead-letter job，皆為舊 refresh token 的 HTTP 400 `invalid_grant`、attempt 1、無 message ID；使用者已確認均為測試資料，本輪未補寄。沒有 pending、failed 或 processing email job。部署環境 production custom routes + workers.dev，Worker `site-creator-vinext-starter`，URL `https://lilaiireland.com/language-school-signup/`，Version ID `c03042fe-b6fc-4fb8-b97f-6a0f5c00ea3a`（100% traffic）；前一已驗證同程式版本 `ff05f271-eff7-4479-a77a-f905fdb0e917` 可作程式 rollback baseline，但含已停用的一次性 preview diagnostic secret，因此非首選回切目標。驗證：Gmail／Email 13/13、TypeScript、`git diff --check`；production build 成功，lint 0 errors／20 個既有 warnings。保留 `POST /api/applications` HTTP 201／submission ID／前端成功畫面／Google Ads 轉換定義與時機／現有非同步 Queue，未新增 polling、status endpoint、D1 migration，未變更 DNS、Nameserver、WordPress 或 Cloudflare routes。
 - 2026-09-04 Google Ads 兩種條件式轉換已部署：沿用資料模型的 `direct_application` 與 `consultation`，分別只對應 `AW-17610996814/MeKhCKz2-e0cEM74yc1B` 與 `AW-17610996814/b4bzCNrO-u0cEM74yc1B`。未將 event snippet 靜態放入 `<head>`，也未綁定提交按鈕；只有前端驗證及 Turnstile 通過、API 成功建立 application 並回傳非個資唯一申請編號 `ST-xxxxxx`、成功狀態確認後，才依該次送出的 serviceType snapshot 呼叫一次 conversion，transaction ID 為 `${serviceType}:${applicationId}`。記憶體 `Set` 與頁籤生命週期的 `sessionStorage` 以同一 transaction ID 雙層去重；提交中的 ref guard 同時阻止重複 API 請求。追蹤缺失、被阻擋或丟出錯誤不影響成功頁，也不會重試 application API。驗證依序完成：lint 0 errors／20 個既有 warnings；TypeScript 通過；unit/integration 27/27（frontend 10/10、Gmail 13/13、Turnstile 3/3、staging config 1/1）；SSR/rendered HTML 2/2；production build 完成全部五階段並產生 `dist`（Windows 程序結束時仍出現既有 libuv assertion，exit `-1073740791`）；`git diff --check` 通過。正式 HTTP 200；實際 HTML 只有一個 Google 基礎 tag script、沒有靜態 conversion 呼叫或兩個 conversion labels；正式 client bundle 含兩個 label、transaction 前綴、去重及 gclid／UTM／landing page 保存邏輯。部署環境為 production custom routes + workers.dev，Worker `site-creator-vinext-starter`，正式 URL `https://lilaiireland.com/language-school-signup/`，Version ID `395225cf-2d36-4cba-83eb-b5068c2f1516`（100% traffic），rollback baseline `30875932-ff95-46c9-9aff-5dc14fb1cc22`。未提交真實 production 表單，避免建立 D1 案件、寄信、Queue／Notion 副作用；內建瀏覽器當時無可用工作階段，因此真實 Turnstile 成功提交與 Tag Assistant／Google Ads 診斷仍需以兩筆受控測試資料人工驗證。未更動 WordPress、DNS、Cloudflare route、D1 schema／既有資料、Queue 或 secrets。
@@ -91,15 +92,15 @@
 
 ## 部署基準
 
-最近一次部署：2026-09-11（Gmail OAuth 更新與 email job 安全化可觀測性）
+最近一次部署：2026-09-12（合作語校可見性與 Cork SEDA College 更新）
 
 - 環境：production custom routes + workers.dev，連接 production D1
 - Worker：`site-creator-vinext-starter`
 - URL：https://lilaiireland.com/language-school-signup/
 - workers.dev：https://site-creator-vinext-starter.lilaiireland.workers.dev/language-school-signup/
 - API：https://lilaiireland.com/language-school-signup/api/applications
-- Version ID：`395225cf-2d36-4cba-83eb-b5068c2f1516`（100% traffic）
-- Worker code rollback baseline：`30875932-ff95-46c9-9aff-5dc14fb1cc22`
+- Version ID：`71609254-e3cd-48dc-a722-060531b213f9`（100% traffic）
+- Worker code rollback baseline：`c03042fe-b6fc-4fb8-b97f-6a0f5c00ea3a`
 - 部署前 D1 備份：`backups/pre-reference-code-migration-2026-08-27.sql`（11,403 bytes，僅存本機且已被 Git ignore）
 - 原始 QA checkpoint：`5aa3541a-2cf4-43f7-8f40-73f96c69922f`
 - Production D1：`lilai-applications-production`
