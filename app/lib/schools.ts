@@ -29,10 +29,11 @@ export const partnerSchools: PartnerSchool[] = [
   school("liffey-dublin", "Liffey College", "Dublin", "logo-liffey-college.png"),
   school("apollo-dublin", "Apollo Language Centre", "Dublin", "logo-apollo-language-centre.png"),
   school("seda-dublin", "SEDA College", "Dublin", "logo-seda-college.png"),
+  school("seda-cork", "SEDA College", "Cork", "logo-seda-college.png"),
   school("everest-dublin", "Everest English", "Dublin", "logo-everest-english.png"),
   school("all-dublin", "Active Language Learning", "Dublin", "logo-active-language-learning.png", "active"),
   school("atc-dublin", "ATC Language Schools", "Dublin", "logo-atc-language-schools.png", "large"),
-  school("ec-dublin", "EC English", "Dublin", "logo-ec-english.png"),
+  { ...school("ec-dublin", "EC English", "Dublin", "logo-ec-english.png"), status: "review", visible: false, directApplicationEligible: false },
   school("english-path-dublin", "English Path", "Dublin", "logo-english-path.png"),
   school("academic-bridge-dublin", "Academic Bridge", "Dublin", "logo-academic-bridge.png"),
   school("delfin-dublin", "Delfin English School", "Dublin", "logo-delfin-english-school.png"),
@@ -40,7 +41,7 @@ export const partnerSchools: PartnerSchool[] = [
   { ...school("erin-cork", "Erin College Cork", "Cork", "logo-erin-college.png", "large"), status: "review", visible: false, directApplicationEligible: false },
   school("cec-cork", "Cork English College", "Cork", "logo-cork-english-college.png"),
   school("bridge-mills-galway", "Bridge Mills Galway", "Galway", "logo-bridge-mills-galway.png"),
-  school("llc-limerick", "Limerick Language Centre", "Limerick", "logo-limerick-language-centre.png"),
+  { ...school("llc-limerick", "Limerick Language Centre", "Limerick", "logo-limerick-language-centre.png"), status: "review", visible: false, directApplicationEligible: false },
 ];
 
 export const visiblePartnerSchools = partnerSchools.filter((item) => item.visible);
