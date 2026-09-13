@@ -18,7 +18,7 @@
 
 Cloudflare 只接管 `/language-school-signup` 與 `/language-school-signup/*`，不得改為全網域 route 或 apex Custom Domain。
 
-2026-09-13：所有諮詢入口 CTA 已統一；一般入口為「預約一對一語校諮詢」，固定行動列為「預約一對一諮詢」，並保留 form intent、錨點與 analytics。未部署。
+2026-09-13：所有諮詢入口 CTA 已統一並部署；一般入口為「預約一對一語校諮詢」，固定行動列為「預約一對一諮詢」，並保留 form intent、錨點與 analytics。
 
 2026-09-12：Cork 加入 `SEDA College`；EC English 與 Limerick Language Centre 保留資料但均為 `review`、不可見、不可直接申請。
 
@@ -38,15 +38,15 @@ Gmail OAuth 與 Notion 憑證僅存 Cloudflare Secrets；Turnstile 在 D1／Queu
 
 ## 部署基準
 
-最近一次部署：2026-09-12（合作學校可見性與 Cork SEDA College）。
+最近一次部署：2026-09-13（諮詢 CTA 統一）。
 
-環境為 production custom routes + workers.dev，連接 production D1 `lilai-applications-production`；Worker `site-creator-vinext-starter` 為 Version `71609254-e3cd-48dc-a722-060531b213f9`（100% traffic），rollback baseline 為 `c03042fe-b6fc-4fb8-b97f-6a0f5c00ea3a`。
+環境為 production custom routes + workers.dev，連接 production D1 `lilai-applications-production`；Worker `site-creator-vinext-starter` 為 Version `12b84469-612a-4ca7-a0a3-83b8ca172060`（100% traffic），rollback baseline 為 `71609254-e3cd-48dc-a722-060531b213f9`。
 
 Worker rollback 不會回復 D1 資料或 migration；若需撤除正式接管，必須自 `wrangler.jsonc` 移除兩條 route 後重新部署。
 
 ## 驗證與本機開發
 
-2026-09-13 已通過 TypeScript、frontend business logic 10/10、rendered HTML 2/2 與 `git diff --check`；lint 為 0 errors／20 個既有 warnings。
+2026-09-13 已通過 TypeScript、frontend business logic 10/10、rendered HTML 2/2、Wrangler dry-run 與 `git diff --check`；lint 為 0 errors／20 個既有 warnings；正式唯讀 smoke test 為 HTTP 200 且兩種 CTA 文案皆存在，未送出表單。
 
 本機使用 `npm.cmd run dev:vinext`，網址為 `http://localhost:3001/language-school-signup/`；常用檢查為 TypeScript、frontend review、lint 與 rendered HTML test。
 
